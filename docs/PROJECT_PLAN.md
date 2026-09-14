@@ -303,13 +303,72 @@ Report cases where the baseline already succeeds honestly. Do not claim improvem
 
 ## 10. Related Work and Open Questions
 
-### Related Work
+### Current Limitations of Similar Projects
 
-- [SpecStory Lore](https://github.com/specstoryai/getspecstory/tree/main/lore): Its documentation describes extracting experience from multiple agents and sessions and generating Skills, making it closely related to this project.
-- [Agent Skills](https://github.com/agentskills/agentskills): An open format for reusable knowledge and workflows; compatibility may be preferable to defining another format.
-- [Waybill](https://github.com/wardmos/waybill) and [Portable Handoff](https://github.com/legoambarish/portable-handoff): References primarily for task handoff and portable artifacts.
+The relevant pain points concern the fit of existing tools to our workflow, not an absence of competing products. Distinguish documented product boundaries from hypotheses about user friction.
 
-This research is based on public documentation, not completed installation tests or effectiveness evaluations. The project does not claim that multi-session extraction, redaction, knowledge files, or cross-agent sharing are unique capabilities.
+The observations below come from the projects' public READMEs. They are not installation tests, performance benchmarks, or an exhaustive market survey. Missing documentation is not proof of a missing capability, and these observations should be rechecked as the projects evolve.
+
+#### continues: Session Transfer Is Not Yet Evidence of Knowledge Synthesis
+
+Source: [continues README](https://github.com/yigitkonur/cli-continues).
+
+- **Documented capabilities:** Discovers and parses native histories from multiple agents, transfers a selected session to another tool, and supports bulk Markdown or JSON export.
+- **Remaining friction for our scenario:** The documented primary unit is a session handoff. Exporting many sessions does not itself combine later corrections, contradictory findings, and repeated investigations into a reusable method. The handoff also references the original session's full local path, which a different user may not be able to access.
+- **What to validate:** Whether a user can derive and share a self-contained, cross-session investigation method without manually selecting, combining, and adapting exported records. Do not claim that continues lacks discovery or file export; it already provides both.
+
+#### SpecStory Lore: Knowledge Mining Already Exists; Native-History Onboarding Needs Investigation
+
+Source: [Lore README](https://github.com/specstoryai/getspecstory/tree/main/lore).
+
+- **Documented capabilities:** Mines SpecStory histories across agents, sessions, projects, and teammates; uses evidence and outcome signals; generates reusable Skills; and proposes updates as evidence grows. It is optimized for Claude Code while documenting fallback behavior for other hosts.
+- **Remaining friction for our scenario:** The documented input corpus is SpecStory history, whereas our entry point is the native session history already present on a user's machine. The reviewed README does not establish the complete onboarding path from untouched native histories. Existing conversion or backfill options must be checked before claiming a limitation.
+- **What to validate:** The setup and manual preparation required to use those existing histories, followed by the steps needed for a different user to adopt a Titan investigation with new parameters and local tool bindings. Do not claim that cross-session mining, team-aware knowledge, evidence-backed Skills, or multi-agent reuse are unique to us.
+
+#### Waybill: Portable Handoff Does Not Include History Mining or Workflow Execution
+
+Source: [Waybill README](https://github.com/wardmos/waybill).
+
+- **Documented capabilities:** Local, reviewable handoff bundles; agent integrations; export/import; redaction; packing and unpacking; and repository verification. It explicitly states that it does not parse agent transcripts and is not a workflow runner.
+- **Remaining friction for our scenario:** Users need another layer to extract methods from existing histories and to run a parameterized Titan investigation in a recipient's environment. Its safety-oriented handoff scope is intentional, not a defect in its implementation.
+- **What to validate:** Whether our extraction and controlled execution layers reduce the additional work compared with using Waybill plus the receiving agent. Its Git inspection collects repository evidence; it is not Git-based knowledge transport. We must not present local file sharing or safe import as missing features.
+
+#### Portable Handoff: Structural Validation Does Not Prove Knowledge Transfer
+
+Source: [Portable Handoff README](https://github.com/legoambarish/portable-handoff).
+
+- **Documented capabilities:** A single Markdown capsule containing canonical JSON, provenance labels, deterministic repository facts, integrity checks, staleness detection, and secret redaction.
+- **Documented limitation:** Its Limits section states that semantic quality depends on the model doing the compaction, that compaction loses information, and that its quality harness cannot establish how much useful knowledge the model supplied.
+- **Remaining friction for our scenario:** A valid capsule and matching repository evidence do not establish that the investigation method applies to a different Titan environment or data range. This is also a challenge our project must solve, not an automatic advantage we possess.
+- **What to validate:** Whether source-linked extraction and recipient-side capability and metric checks reduce unsupported conclusions, missed prerequisites, and failed attempts on a new investigation.
+
+### Proposed Opportunity and How to Test It
+
+The proposed differentiation is an integrated workflow, not a claim that each individual capability is new:
+
+```text
+Existing native histories
+    → Cross-session methods, corrections, and evidence
+    → Reviewed, parameterized investigation package
+    → Adoption by another user with their own tools and permissions
+    → Results grounded in actual queries
+```
+
+Validate three specific sources of friction:
+
+1. **Preparing the input:** What must users install, export, convert, or select before existing sessions can be mined?
+2. **Producing reusable knowledge:** How much manual work is needed to reconcile corrections, preserve evidence, and separate reusable methods from one-off results?
+3. **Making it work for someone else:** How much manual editing, dependency setup, parameter replacement, and clarification is needed before the recipient can perform a new investigation?
+
+Use the same authorized session corpus and new investigation task when comparing a strong Markdown baseline, an existing tool or combination of tools, and our prototype. Record preparation steps, manual edits, clarification requests, inaccessible references, and actual query outcomes. Report strengths and failures for every approach without inventing savings or success rates.
+
+Our integration may introduce its own costs: native-format maintenance, model analysis cost, and tool-adapter setup. Include those in the comparison. If existing tools already handle the scenario well, consider extending or composing them rather than duplicating their functionality.
+
+### Existing Capabilities We Should Reuse or Match
+
+- [Agent Skills](https://github.com/agentskills/agentskills) already provides an open format for portable knowledge and workflows. Compatibility may be preferable to another standalone knowledge format.
+- Local operation, cross-agent support, single-file or packaged sharing, redaction, provenance, staleness checks, and cross-session mining already exist in related projects. None should be presented as a standalone unique differentiator.
+- An honest claim for this hackathon is to demonstrate one complete native-history-to-Titan-reuse workflow and measure the remaining manual work—not to claim that existing projects cannot share knowledge.
 
 ### Open Questions
 

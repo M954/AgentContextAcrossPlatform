@@ -28,6 +28,23 @@ A single-session summary can miss these connections. We want to recover **what w
 
 **The file format is not the core value.** A regular prompt can already summarize a session into Markdown. The value we need to validate lies in cross-session synthesis, source traceability, applicability checks, and the execution of reusable workflows.
 
+## Current Limitations of Similar Projects
+
+Existing projects already offer session migration, portable handoff files, and cross-session skill extraction. The opportunity is not that these capabilities are missing everywhere, but that the path from existing local histories to another user's runnable investigation can still require additional work.
+
+The comparison below is based on the projects' public READMEs, not hands-on benchmarks. A capability that is not established by those documents is a question to test, not proof that it is unsupported.
+
+| Project | Existing strengths | Limitation or remaining friction relevant to our use case |
+|---|---|---|
+| [continues](https://github.com/yigitkonur/cli-continues) | Discovers native histories from multiple agents, resumes selected sessions across tools, and exports Markdown or JSON. | Its documented core workflow transfers a selected session. Synthesizing a reusable method across multiple investigations is not established by the reviewed README. |
+| [SpecStory Lore](https://github.com/specstoryai/getspecstory/tree/main/lore) | Mines patterns across agents, sessions, projects, and teammates, then produces evidence-backed Skills. | Its documented input is SpecStory history. The setup or conversion needed for existing native histories that were not captured by SpecStory needs validation. Cross-session mining itself is already covered. |
+| [Waybill](https://github.com/wardmos/waybill) | Provides local export/import, reviewable bundles, redaction, packaging, and repository checks. | It explicitly excludes transcript parsing and is not a workflow runner. Mining existing histories and executing a parameterized Titan investigation require an additional layer. |
+| [Portable Handoff](https://github.com/legoambarish/portable-handoff) | Provides single-file capsules, provenance labels, integrity checks, and repository-staleness checks. | Its documentation acknowledges that semantic quality depends on what the model captures. File and repository validation do not establish that an extracted method applies to new Titan data. |
+
+Our hypothesis is that a focused plugin can reduce the work between **existing native histories → reviewed cross-session knowledge → a parameterized investigation used by another person with their own tools and permissions**. We must demonstrate that improvement rather than assume it.
+
+Local operation, cross-agent support, file export/import, redaction, and provenance are not unique differentiators. See the [competitive analysis and validation plan](docs/PROJECT_PLAN.md#10-related-work-and-open-questions) for details.
+
 ## How It Works
 
 ```text
