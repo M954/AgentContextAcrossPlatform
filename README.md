@@ -1,136 +1,136 @@
 # AgentContextAcrossPlatform
 
-**从不同 coding agent 的历史会话中提炼知识，让另一个人的 agent 也能复用这些经验。**
+**Turn knowledge from coding agent histories into reusable expertise for someone else's agent.**
 
-一个插件式的 knowledge sharing 项目：整理本机不同 agent、不同 session 的工作记录，提炼有来源、有适用边界的知识和调查方法，经用户审核后导出为一个文件。接收方通过插件导入，在自己的 agent 和环境中使用。
+A plugin-based knowledge-sharing project that brings together work recorded across local agents and sessions. It extracts knowledge and investigation methods with traceable sources and explicit applicability boundaries, lets users review and export them as a single file, and enables recipients to import and use them in their own agents and environments.
 
-> **当前状态：Hackathon 设计阶段，尚未实现可运行的插件或命令。**
-> 下文的命令、文件名和流程均为拟议设计。完整需求和架构见 [项目计划](docs/PROJECT_PLAN.md)。
+> **Status: Hackathon design stage. No working plugins or commands have been implemented yet.**
+> The commands, filenames, and workflows below are proposed designs. See the [project plan](docs/PROJECT_PLAN.md) for detailed requirements and architecture.
 
-## 为什么做这个项目？
+## Why This Project?
 
-开发经验往往散落在不同 agent 的历史里：
+Development experience is often scattered across agent histories:
 
-- 一个 session 尝试了某个方案。
-- 另一个 session 发现它在特定条件下失败。
-- 后续 session 中，用户纠正了原因，并验证了新的做法。
+- One session tries an approach.
+- Another discovers that it fails under certain conditions.
+- A later session contains a user correction and validation of a different approach.
 
-单次会话总结容易遗漏这些关联。我们希望从这些记录中整理出：**什么方法有效、为什么有效、什么时候不能用，以及依据在哪里。**
+A single-session summary can miss these connections. We want to recover **what worked, why it worked, when it does not apply, and what evidence supports it.**
 
-### Knowledge handoff，而不只是 Context handoff
+### Knowledge Handoff, Not Just Context Handoff
 
 | | Context handoff | Knowledge handoff |
 |---|---|---|
-| 核心问题 | 原任务做到哪里了？ | 从工作中学到了什么？ |
-| 主要内容 | 进度、改动、待办 | 方法、约束、判断依据、失败经验 |
-| 使用方式 | 接着完成同一个任务 | 应用于后续相关任务 |
-| 成功标准 | 接收方能继续工作 | 接收方能正确复用经验，并识别不适用条件 |
+| Core question | Where did the original task stop? | What did we learn from the work? |
+| Main content | Progress, changes, and next steps | Methods, constraints, rationale, and lessons from failures |
+| Intended use | Continue the same task | Apply knowledge to future related tasks |
+| Success criterion | The recipient can resume work | The recipient can reuse the knowledge correctly and recognize when it does not apply |
 
-**文件格式不是核心价值。** 如果只是“总结当前会话并写入 Markdown”，普通 prompt 已经可以完成。我们要验证的增量价值是跨 session 整理、来源追溯、知识适用性检查，以及可复用流程的实际执行。
+**The file format is not the core value.** A regular prompt can already summarize a session into Markdown. The value we need to validate lies in cross-session synthesis, source traceability, applicability checks, and the execution of reusable workflows.
 
-## 工作方式
+## How It Works
 
 ```text
-用户 A 的机器
-  多个 Agent / 多个 Session
-              ↓
-  自动发现获准读取的记录并统一格式
-              ↓
-  跨会话提炼知识、纠正、反例和证据
-              ↓
-        用户审核与选择
-              ↓
-         导出单个文件
-              │
-      用户自行通过邮件或聊天发送
-              ↓
-用户 B 的机器
-  插件导入 → 审核适用范围与依赖
-              ↓
-  在自己的 Agent 和环境中使用
+User A's machine
+  Multiple agents / multiple sessions
+                  ↓
+  Discover authorized records and normalize formats
+                  ↓
+  Extract knowledge, corrections, counterexamples, and evidence
+                  ↓
+           User review and selection
+                  ↓
+             Export one file
+                  │
+       User sends it through email or chat
+                  ↓
+User B's machine
+  Plugin import → Review applicability and dependencies
+                  ↓
+  Use the knowledge in B's own agent and environment
 ```
 
-- **插件形式**：不建设独立托管服务或平台账号系统。
-- **单文件交换**：不通过 Git 同步，不负责文件传输。
-- **跨 agent、跨用户**：宿主差异由适配层承担，用户不需要指定来源 agent。
-- **知识与权限分离**：分享知识不携带凭证，也不自动授予数据访问权限。
-- **按需使用**：导入内容保存在外部，在相关任务中提供给 agent，不是修改模型权重。
+- **Plugin-based:** No standalone hosted service or platform account system.
+- **Single-file exchange:** No Git-based synchronization; users handle file delivery.
+- **Cross-agent and cross-user:** Adapters handle host differences. Users do not need to specify the source agent.
+- **Knowledge is separate from access:** Sharing does not include credentials or grant data access.
+- **On-demand use:** Imported knowledge is stored externally and provided for relevant tasks; it does not modify model weights.
 
-“所有 agent”是兼容愿景；实际支持的来源与宿主需要逐个实现和验证。
+Supporting every agent is the long-term compatibility goal. Individual sources and hosts must be implemented and validated before they are considered supported.
 
-## 首个 MVP：Titan Latency Investigation
+## First MVP: Titan Latency Investigation
 
-**把已有的一次 Titan latency 调查，转成另一个用户可以复用的调查方法。**
+**Turn an existing Titan latency investigation into a method another user can reuse.**
 
-### 用户 A：从调查记录导出
+### User A: Export from an Investigation
 
-原 conversation 中可能包含数据源选择、查询、错误修复、指标解释和用户纠正。插件将这些信息整理为：
+The original conversation may contain data source selection, queries, fixes, metric explanations, and user corrections. The plugin organizes these into:
 
-- 实际执行过的查询及关联结果。
-- 每一步调查的目的、顺序和判断依据。
-- 可替换的时间范围、调查对象等参数。
-- 工具依赖、适用条件、失败经验和限制。
-- 经过选择和脱敏的来源证据。
+- Queries that were actually executed and their associated results.
+- The purpose, order, and rationale of each investigation step.
+- Replaceable parameters such as the time range and investigation target.
+- Tool dependencies, applicability conditions, lessons from failures, and limitations.
+- Selected and redacted source evidence.
 
-A 审核后导出一个知识包，例如 `titan-latency.knowledge.zip`，发送给 B。
+After review, A exports a knowledge package, such as `titan-latency.knowledge.zip`, and sends it to B.
 
-### 用户 B：在自己的环境中运行
+### User B: Run in Their Own Environment
 
-B 导入后，插件检查本地 Titan 查询能力和必要条件，收集本次调查参数。在 B 确认后，使用 **B 自己的身份和权限**执行已审核的只读查询，输出带实际查询和结果依据的报告。
+After import, the plugin checks local Titan query capabilities and prerequisites, then collects parameters for the new investigation. With B's confirmation, it runs reviewed, read-only queries using **B's own identity and permissions**, and produces a report grounded in the actual queries and results.
 
-遇到权限不足、数据结构变化或证据不足时，应明确暂停或报告限制，而不是假装已经成功迁移。
+Missing permissions, changed data structures, or insufficient evidence must lead to an explicit pause or limitation report, not a claim that the workflow transferred successfully.
 
-**复用的是调查方法，不是把 A 的历史根因当成 B 的新结论。** Titan 的实际接口、数据结构和指标定义仍需根据真实会话确认。
+**The investigation method is reused; A's historical root cause is not treated as B's new conclusion.** Titan's actual interfaces, data structures, and metric definitions still need to be confirmed from a real conversation.
 
-## 拟议命令
+## Proposed Commands
 
-以下命令尚未实现，实际语法由宿主适配：
+These commands are not implemented yet. Each host adapter will provide the appropriate invocation syntax.
 
-| 命令 | 作用 |
+| Command | Purpose |
 |---|---|
-| `/knowledge mine` | 发现已支持的历史来源，按项目、时间和会话范围提炼候选知识 |
-| `/knowledge export` | 审核并导出选定知识或调查流程 |
-| `/knowledge import <file>` | 校验文件、展示内容，并确认采用范围 |
-| `/knowledge run <investigation-id>` | 检查依赖、收集参数，确认后执行调查流程 |
+| `/knowledge mine` | Discover supported history sources and extract candidate knowledge within selected projects, time ranges, and sessions |
+| `/knowledge export` | Review and export selected knowledge or investigation workflows |
+| `/knowledge import <file>` | Validate a package, preview its contents, and confirm where it should apply |
+| `/knowledge run <investigation-id>` | Check dependencies, collect parameters, and run an investigation after confirmation |
 
-导入、采用知识和执行查询是不同动作，不应因导入文件而自动执行其中的命令。
+Importing a file, adopting its knowledge, and executing queries are separate actions. Import must not automatically execute commands contained in a package.
 
-## 架构边界
+## Architecture Boundaries
 
-- **Host Adapters**：发现和读取不同 session 格式，注册命令，向当前 agent 提供知识。
-- **Knowledge Core**：处理统一记录，关联来源，提炼和审核知识，管理知识包与参数。
-- **Tool Capability Adapters**：映射接收方的实际工具能力，例如 Titan 查询；与来源 agent 解耦。
+- **Host Adapters:** Discover and read session formats, register commands, and provide knowledge to the current agent.
+- **Knowledge Core:** Process normalized records, link sources, extract and review knowledge, and manage packages and parameters.
+- **Tool Capability Adapters:** Map execution capabilities in the recipient's environment, such as Titan queries, independently of the source agent.
 
-优先使用本地文件及轻量索引，不以云服务、向量数据库或知识图谱作为 MVP 前提。
+Prefer local files and lightweight indexes. Cloud services, vector databases, and knowledge graphs are not prerequisites for the MVP.
 
-## Hackathon 路线
+## Hackathon Roadmap
 
-### 阶段一：跑通一个真实调查
+### Phase 1: Complete One Real Investigation Workflow
 
-- [ ] 从真实 Titan conversation 建立归一化样例。
-- [ ] 提取可审核的调查方法、查询和适用条件。
-- [ ] 实现单文件导出、校验和导入。
-- [ ] 在接收方环境完成依赖检查与参数化执行。
-- [ ] 用不同的时间范围或目标验证方法复用。
+- [ ] Build a normalized fixture from a real Titan conversation.
+- [ ] Extract a reviewable investigation method, queries, and applicability conditions.
+- [ ] Implement single-file export, validation, and import.
+- [ ] Check dependencies and run the parameterized workflow in the recipient's environment.
+- [ ] Validate reuse with a different time range or target.
 
-### 阶段二：证明跨 session 提炼价值
+### Phase 2: Demonstrate Cross-Session Knowledge Extraction
 
-- [ ] 接入两种经过验证的本地 agent 历史来源。
-- [ ] 自动发现来源，并支持项目和时间筛选。
-- [ ] 综合多段记录提炼纠正、失败经验和后续修订。
-- [ ] 展示至少一条需要结合多个 session 才能形成的有用知识。
+- [ ] Integrate two validated local agent history sources.
+- [ ] Discover sources automatically and support project and time filtering.
+- [ ] Synthesize corrections, lessons from failures, and later revisions across records.
+- [ ] Demonstrate at least one useful insight that requires combining multiple sessions.
 
-验收时与“同一批记录 + 好的总结 prompt + Markdown”比较，而不只与单 session 总结比较。关注知识是否值得保留、是否可追溯，以及接收方能否正确使用并避免过度泛化。
+Evaluate against **the same records + a strong summarization prompt + Markdown**, not just a single-session summary. Focus on whether the knowledge is worth keeping, whether its sources are traceable, and whether the recipient can apply it without overgeneralizing.
 
-## 安全与隐私
+## Security and Privacy
 
-- 只采集用户授权的来源；采集、发送给模型分析和导出分享分别控制。
-- 默认不分享完整聊天、凭证或大量原始调查数据；提供人工预览，敏感信息检测仅作为辅助。
-- 导入包视为不可信数据，不自动执行脚本或覆盖全局 agent 指令。
-- 执行查询需要明确的能力映射、参数校验、范围限制和用户授权。
-- 无自建后端不等于数据不离机：使用远程模型时，送入上下文的材料可能发送给模型提供方。
-- 文件发出后，无法可靠撤回接收方已经复制的内容。
+- Read only authorized sources. Control collection, submission to a model for analysis, and export separately.
+- Do not share full conversations, credentials, or large amounts of raw investigation data by default. Provide human review; sensitive-data detection is only an aid.
+- Treat imported packages as untrusted data. Do not automatically execute scripts or overwrite global agent instructions.
+- Query execution requires explicit capability mapping, parameter validation, scope limits, and user authorization.
+- No custom backend does not mean no data leaves the machine: material supplied to a remote model may be sent to its provider.
+- Once a file is shared, copies already made by the recipient cannot reliably be revoked.
 
-## 文档
+## Documentation
 
-- [项目计划](docs/PROJECT_PLAN.md)：完整产品边界、Titan MVP、适配架构、知识包草案、安全要求、验收标准及相关工作。
+- [Project Plan](docs/PROJECT_PLAN.md): Product boundaries, the Titan MVP, adapter architecture, draft package format, security requirements, acceptance criteria, and related work.
