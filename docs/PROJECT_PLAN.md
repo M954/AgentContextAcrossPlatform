@@ -1,383 +1,387 @@
-# AgentContextAcrossPlatform — Hackathon Project Plan
+# AgentContextAcrossPlatform - Remote Session Clone Project Plan
 
-> Status: Discussion draft; not implemented.
-> This document captures the agreed product direction, architectural boundaries, and first MVP scenario. Commands, file extensions, and directory layouts are design examples, not features currently available in this repository.
+> Status: Active design direction; not implemented.
+> This plan defines the new primary goal: publish a resumable agent-session snapshot to a remote location and let another user clone it into their local agent.
+>
+> The previous knowledge-handoff plan is preserved in [KNOWLEDGE_HANDOFF_PLAN.md](KNOWLEDGE_HANDOFF_PLAN.md).
 
 ## 1. Product Definition
 
-A plugin for coding agents that extracts reusable knowledge from work recorded across different agents and sessions on the current machine. Users review and export that knowledge as a single file, which another user can import through the plugin and use in their own agent and environment.
+AgentContextAcrossPlatform is an MCP/tool integration for creating a portable, remote version of an active coding-agent session.
 
-**The core is discovering, organizing, and reusing knowledge accumulated through work—not moving chat logs. File sharing is the delivery mechanism.**
+The source user can trigger the tool from inside a session. The tool captures an approved snapshot of the session, stores it remotely, and returns a shareable link. A recipient opens the link from their own local agent, reviews the snapshot, and creates a local cloned session that can continue the work.
 
-### Context Handoff vs. Knowledge Handoff
+The primary unit is a **session snapshot**, not a live process and not an unrestricted copy of a user's machine.
 
-- Context handoff communicates where the original task stopped so someone else can continue it.
-- Knowledge handoff extracts methods, constraints, rationale, lessons from failures, and applicability boundaries for future related tasks.
-- An investigation result belongs to a particular task; a parameterized investigation method can become reusable knowledge.
-- Importing knowledge does not modify model weights or guarantee permanent model memory. Knowledge is stored externally and provided on demand for relevant tasks.
-
-### Agreed Product Constraints
-
-1. Plugin-based; no standalone hosted service or platform account system.
-2. No Git-based knowledge synchronization or transport.
-3. User A exports one file through a command and sends it to B through a channel such as chat or email.
-4. User B imports the file through a command and reviews it before using the knowledge or investigation workflow.
-5. Cross-user and cross-agent; adapters handle differences between supported hosts.
-6. Users do not need to specify the source agent or understand native session formats.
-7. The product vision covers multiple agents and sessions on the local machine, not just the current conversation.
-8. Sharing knowledge does not grant data access, carry A's credentials, or automatically synchronize code or environments.
-
-## 2. Core Value and Hypotheses to Validate
-
-### Why Not Just Ask an Agent to Write Markdown?
-
-If the only workflow is “summarize the current session → write a file → read it elsewhere,” the incremental value is limited. Markdown can already carry knowledge; inventing a new format is not evidence of value.
-
-Capabilities worth implementing and validating include:
-
-- Discovering authorized histories from different agents and normalizing messages, tool calls, and results.
-- Connecting the evolution of a problem, user corrections, failed attempts, and later validation across sessions.
-- Distinguishing project facts, personal preferences, transferable methods, and unverified hypotheses.
-- Preserving sources, applicability conditions, counterexamples, and later revisions.
-- Turning actual execution records into reviewable, parameterized workflows for recipients.
-- Checking tool dependencies and prerequisites in the recipient's environment and retaining execution evidence.
-
-These are product hypotheses. We should not claim in advance that they outperform a general-purpose agent with a strong prompt.
-
-### Cross-Session Example
+### Target Outcome
 
 ```text
-Session A: Tries approach X
-Session B: Finds that X fails under condition C
-Session C: Contains a user correction; approach Y passes the relevant tests
-    ↓
-Candidate knowledge: Do not apply X directly under condition C;
-consider Y and run the corresponding validation.
+User A's active agent session
+    -> publish approved session snapshot
+    -> remote immutable snapshot and shareable link
+    -> User B opens the link in a local agent
+    -> validate, review, and clone
+    -> resume the work with B's own tools and permissions
 ```
 
-Repeated occurrence does not establish correctness. Copies of the same record must not count as independent evidence.
+### Context Handoff and Knowledge Handoff
+
+The previous project direction focused on extracting reusable knowledge from multiple sessions. That work is retained as a future capability and historical design in [KNOWLEDGE_HANDOFF_PLAN.md](KNOWLEDGE_HANDOFF_PLAN.md).
+
+The active direction starts with context handoff:
+
+- **Context handoff:** preserve enough session state for another user to continue the same task.
+- **Knowledge handoff:** extract reusable methods, constraints, and lessons for future tasks.
+
+Knowledge extraction may later be layered on top of a session snapshot, but it is not required for the first MVP.
+
+## 2. Product Principles
+
+1. **Explicit user action:** publishing, importing, and resuming are separate actions.
+2. **Review before use:** recipients inspect the snapshot before creating a local clone.
+3. **Own identity and environment:** the recipient uses their own credentials, tools, files, and permissions.
+4. **No secret transfer:** credentials, tokens, environment secrets, and private keys are excluded by default.
+5. **Immutable provenance:** a published snapshot is addressable, versioned, integrity-checked, and traceable to its source session.
+6. **Safe degradation:** different hosts or capabilities produce an explicit limitation instead of a false claim of exact resumption.
+7. **No automatic replay:** imported tool calls and instructions are data until the recipient explicitly chooses an action.
+8. **Least collection:** capture only the session and workspace material needed to resume the task.
 
 ## 3. User Workflows
 
-### 3.1 Discovery and Extraction
+### 3.1 Publish from an Active Session
 
-Proposed command:
-
-```text
-/knowledge mine
-```
-
-1. Automatically discover supported local agent session sources.
-2. Show the collection scope and let users select projects, time ranges, and sessions.
-3. Read only authorized sources; do not perform unrestricted collection across the machine.
-4. Normalize source formats and organize relevant records by problem or topic.
-5. Generate candidate knowledge with evidence, applicability conditions, and uncertainty.
-6. Let users inspect sources, edit, keep, or dismiss candidates.
-
-Direct extraction from the current conversation remains one entry point within the broader product.
-
-### 3.2 Export
+The source user triggers a host-specific command or MCP operation such as:
 
 ```text
-/knowledge export
+/session publish
 ```
 
-Users select knowledge entries or investigation workflows, preview the contents, remove sensitive information, and generate one portable file. Users handle delivery themselves.
+The tool should:
 
-### 3.3 Import and Use
+1. Identify the current session and host adapter.
+2. Show the proposed collection scope.
+3. Capture conversation messages, tool calls, tool results, attachments, and resumable workspace metadata that are in scope.
+4. Detect or redact secrets and sensitive values.
+5. Let the user review and approve the snapshot.
+6. Upload an immutable snapshot to the configured remote store.
+7. Return a link and a short snapshot identifier.
+
+The source user may publish a later revision of the same session. A revision must point to its parent snapshot without mutating the already-published version.
+
+### 3.2 Open and Review a Link
+
+The recipient opens a link through a local agent command or MCP operation such as:
 
 ```text
-/knowledge import <file>
+/session open <link>
 ```
 
-1. Validate the format, version, size, and content boundaries.
-2. Show the contents, claimed provenance, applicability, and dependencies.
-3. Ask the user to confirm the target project and adoption scope.
-4. Check local tools and environmental prerequisites.
-5. Provide knowledge on demand; for investigation workflows, collect parameters and request execution confirmation.
+The importer should:
 
-Proposed investigation entry point:
+1. Resolve and authenticate the link.
+2. Verify the snapshot signature or content hash.
+3. Validate format version, size limits, and content boundaries.
+4. Show the source host, repository metadata, collection time, scope, and limitations.
+5. Display the transcript and proposed workspace state without executing imported operations.
+6. Check which local capabilities can represent the snapshot.
+
+Opening a link must not automatically create a session, run a tool, modify a repository, or install a plugin.
+
+### 3.3 Clone and Resume Locally
+
+After review, the recipient explicitly chooses to clone:
 
 ```text
-/knowledge run <investigation-id>
+/session clone <snapshot-id>
 ```
 
-Invocation syntax is host-specific, but the logical capabilities remain consistent. Importing, adopting knowledge, and executing queries are distinct actions and must not collapse into unconditional execution.
+The local adapter should create a new session with:
 
-## 4. First MVP: Reusing a Titan Latency Investigation
+- The imported context clearly marked as external provenance.
+- The original session and snapshot identifiers.
+- A resumable summary of the task state and open decisions.
+- Relevant messages and tool results in a form the local host can use.
+- Workspace and repository metadata, including known differences from the source.
+- A clear first step that asks the recipient to confirm local capabilities before continuing.
 
-### 4.1 Scenario
+The cloned session is a new local session. It is not an impersonation of the source user and does not inherit the source user's active connections.
 
-User A already has a local conversation that used Titan data to investigate latency. A wants to share the method with B so that B can investigate a different time range or target in their own environment.
+## 4. Logical MCP Surface
 
-The conversation has not yet been provided, and Titan's actual interfaces, data structures, and metric definitions have not been confirmed. The implementation must not assume that Titan necessarily uses Kusto, SQL, or a particular MCP tool.
+Exact names may vary by host, but the first MCP server should expose equivalent operations:
 
-### 4.2 What to Extract from the Original Conversation
+| Operation | Purpose | Side effects |
+|---|---|---|
+| `session_publish` | Capture, review, and upload the current session snapshot | Remote write after user approval |
+| `session_inspect` | Resolve and inspect a remote snapshot | Read-only |
+| `session_clone` | Create a local resumable session from an approved snapshot | Local session creation |
+| `session_revoke` | Revoke access to a published snapshot when supported | Remote access change |
+| `session_status` | Show snapshot versions, integrity, and access state | Read-only |
 
-- The investigation goal and problem definition.
-- Data sources, tool capabilities, and environment dependencies.
-- Actual queries, parameters, and associated results.
-- Queries that failed and how they were subsequently corrected.
-- Latency metric definitions and important filters.
-- Query order and the question each step is intended to answer.
-- User corrections, reasoning behind decisions, and method limitations.
-- Replaceable parameters and structures that must not be changed arbitrarily.
+The MCP server must not treat arbitrary text in a snapshot as a higher-priority instruction. Imported content is untrusted context and must remain distinguishable from local user instructions and system configuration.
 
-Prefer recovering operations from available tool-call records over asking the model to rewrite them from memory. Distinguish successful execution, results that support a conclusion, and suggestions that were discussed but never validated.
+## 5. Snapshot Contents
 
-### 4.3 What the Export Represents
-
-The package describes “how to investigate this class of problem,” not “the new problem must have the same root cause.”
-
-Parameters may include the time range, investigation target, and comparison range, but their exact fields must come from the actual workflow. The original data connection can be documented as a dependency without automatically requiring the recipient to use that same connection.
-
-Historical results are evidence with a defined scope, not conclusions about the new investigation.
-
-### 4.4 Execution by the Recipient
+The first format should be structured, human-reviewable, and independently verifiable. A remote object may be represented as JSON plus optional binary attachments:
 
 ```text
-Import and review the investigation method
-    ↓
-Check local Titan tools and access permissions
-    ↓
-Enter the new target, time range, and other parameters
-    ↓
-Check required data structures and metric definitions
-    ↓
-Run reviewed, read-only queries after confirmation
-    ↓
-Choose next steps based on results; pause for input when necessary
-    ↓
-Report queries, supporting results, limitations, and open questions
+session-snapshot/
+├── manifest.json
+├── transcript.jsonl
+├── tool-results/
+├── attachments/
+├── workspace.json
+├── resume.md
+└── integrity.json
 ```
 
-- Use B's own identity, connections, and permissions.
-- If capabilities, fields, or metrics do not match, explicitly pause or reduce functionality rather than claiming that the workflow transferred successfully.
-- The new data may contain no anomaly. Reports must allow “no anomaly found” or “insufficient evidence.”
-- Bound query scope, count, duration, and result size to prevent unbounded queries and unnecessary costs.
+### 5.1 Manifest
 
-## 5. Architecture
+The manifest should include:
+
+- Format and schema version.
+- Snapshot ID, parent snapshot ID, and content hash.
+- Source host and adapter version.
+- Source session ID, when the host permits it.
+- Repository, branch, commit, and working-directory identifiers when available.
+- Creation time and collection scope.
+- Included and excluded categories.
+- Declared capabilities and required local capabilities.
+- Expiration, visibility, and revocation metadata.
+
+### 5.2 Transcript and Tool Records
+
+Records should preserve, where authorized:
+
+- User and assistant messages.
+- Tool requests, arguments, results, errors, and timestamps.
+- Which results were actually observed versus merely proposed.
+- Attachments and references needed to understand the task.
+- Source record identifiers for traceability.
+
+Large results should support bounded excerpts and explicit omission records. The snapshot must never claim to contain data that was not captured.
+
+### 5.3 Workspace State
+
+Workspace capture must be opt-in and bounded. The initial design may include:
+
+- Repository URL and revision.
+- Current branch and working-tree status.
+- Changed-file list and selected diffs.
+- Relevant file references or user-selected excerpts.
+- Environment and dependency information that is safe to share.
+
+It must not silently upload an entire repository, home directory, credential store, or environment-variable values.
+
+### 5.4 Resume Material
+
+`resume.md` should be generated from captured evidence and identify:
+
+- Original task and current state.
+- Completed work and unresolved work.
+- Important decisions and constraints.
+- Failed approaches and their observed reasons.
+- Suggested next steps.
+- Missing context and capability mismatches.
+- A warning that historical conclusions may not hold in the recipient's environment.
+
+The resume material is a convenience view. The structured records and provenance remain authoritative.
+
+## 6. Remote Storage and Link Model
+
+The design requires a remote storage abstraction. The MVP should separate the snapshot format from the selected provider.
+
+### 6.1 Required Remote Behaviors
+
+- Upload an immutable snapshot.
+- Return a stable snapshot ID and shareable link.
+- Download by snapshot ID or link.
+- Verify integrity before import.
+- Support access control and authentication.
+- Support expiration and revocation where the provider allows it.
+- Preserve parent-child relationships between revisions and clones.
+- Record access and publication events without storing unnecessary transcript data in logs.
+
+The first implementation can use a simple authenticated object store or repository-backed development service, but production behavior must not depend on public, unauthenticated links.
+
+### 6.2 Link Semantics
+
+A link identifies a snapshot, not a live session. Opening the same link later must resolve to the same immutable content unless the link is explicitly configured as a revocable alias.
+
+Recommended link forms:
 
 ```text
-Agent plugin entry point / local session discovery
-                    ↓
-               Host Adapters
-                    ↓
-          Normalized Conversation
-                    ↓
-         Knowledge Extraction Core
-                    ↓
-  Candidate knowledge, sources, scope, and user review
-                    ↓
-          Single-file knowledge package
-                    ↓
-  Recipient plugin: validation, review, and adaptation
-                    ↓
-  On-demand knowledge / confirmed investigation execution
+https://<service>/sessions/<snapshot-id>
+https://<service>/sessions/<snapshot-id>?revision=<revision>
 ```
 
-### 5.1 Host Adapter
+Links must not embed credentials or raw session contents.
 
-Handles host-specific responsibilities:
-
-- Discover supported session storage locations automatically.
-- Read authorized messages, tool calls, results, and attachment references.
-- Register commands and obtain current project and session information.
-- Provide normalized knowledge to the current agent.
-
-The core library should not contain business logic that branches on agent names. The source agent may be retained as provenance metadata, but it is neither a required user input nor an execution dependency of the imported package.
-
-“All agents” is a compatibility goal, not a substitute for individual validation. Unreadable sources should produce an explicit unsupported-source message or require a standard export, rather than silently claiming complete collection.
-
-### 5.2 Knowledge Core
-
-Processes normalized data:
-
-- Record normalization, deduplication, and source linking.
-- Topic organization and cross-session correction and conflict detection.
-- Candidate extraction, review, revision, and export.
-- Parameter definitions, input validation, and on-demand context assembly.
-
-The model performs semantic extraction. Local code performs deterministic checks on formats, references, parameters, and tool results where possible. Tool validation must not be presented as proof of every semantic claim in the knowledge.
-
-### 5.3 Tool Capability Adapter
-
-Separate from the Host Adapter, this layer handles execution capabilities in the recipient's environment, such as Titan queries.
-
-The exact tool name used in the original conversation should not be treated as the only possible implementation. However, substitutions require validated capability mappings; the model must not arbitrarily assume that two interfaces are semantically equivalent.
-
-### 5.4 Storage and Execution
-
-- Local files store candidate knowledge, review records, and imported content.
-- The MVP can use lightweight indexes; a database, vector search, or persistent service is not required.
-- Prefer the host agent's model capabilities rather than building a separate inference backend.
-- “No custom hosted backend” does not mean “no data leaves the machine.” If the host uses a remote model, history or evidence included in its context may be sent to the model provider. Make the data scope explicit before analysis.
-
-## 6. Draft Knowledge Package
-
-The tentative format is one ZIP file containing human-readable material and structured metadata. The final format may change during the MVP; the format itself is not the differentiator.
+## 7. Architecture
 
 ```text
-titan-latency.knowledge.zip
-├── manifest.json       # Format version, knowledge type, scope, parameters, capabilities
-├── KNOWLEDGE.md        # Methods, steps, rationale, counterexamples, and limitations
-├── queries/            # Reviewed query templates, optional
-└── evidence.md         # Selected, redacted source evidence, optional
+Current host session
+        |
+        v
+Host adapter and scope collector
+        |
+        v
+Redaction, review, normalization, and signing
+        |
+        v
+Remote storage and link service
+        |
+        v
+Recipient's local host adapter
+        |
+        v
+Validation, review, capability mapping, and local clone
+        |
+        v
+New local session with external provenance
 ```
 
-Each knowledge entry should describe at least:
+### 7.1 Host Adapter
 
-- Content and type: fact, method, constraint, lesson, or hypothesis.
-- Applicable projects, environments, versions, and triggering conditions.
-- Sources and evidence, distinguishing user requirements, tool observations, and model inferences.
-- Recommended actions and conditions under which they do not apply.
-- Known contradictions, missing information, and validation methods.
+The host adapter is responsible for:
 
-Packages should be self-contained where possible. Inaccessible evidence must be labeled rather than represented only by absolute paths on A's machine. Procedural knowledge could be rendered into Agent Skills-compatible material, but that must not cause bundled code to be installed or executed automatically.
+- Discovering the current session through supported host APIs or local history.
+- Reading messages, tool calls, results, and attachment references.
+- Registering the host-specific trigger.
+- Translating a normalized snapshot into a new local session.
+- Reporting unsupported fields instead of silently dropping them.
 
-## 7. Security and Trust Boundaries
+The core should not branch on agent names for business logic. Host differences belong in adapters.
 
-- Collection, submission to a model for analysis, and export for sharing are separate authorization steps.
-- Do not export full conversations, credentials, raw environment variable values, or large amounts of raw Titan data by default.
-- Provide sensitive-data detection and human preview. Detection reduces risk but cannot guarantee the absence of sensitive information.
-- Claimed authors and agent names do not automatically authenticate identity.
-- Treat imported packages as untrusted data; they do not automatically acquire high-priority instruction authority.
-- Do not execute bundled scripts, use package-supplied paths to access arbitrary files, or overwrite global agent instructions automatically.
-- If ZIP is used, check extraction size, path traversal, symbolic links, and unexpected file types.
-- Query execution requires explicit local capability mapping, parameter validation, and user authorization.
-- Once a file has been shared, copies already made by recipients cannot reliably be revoked.
+### 7.2 Snapshot Core
 
-## 8. Hackathon Scope and Implementation Order
+The core is responsible for:
 
-### Phase 1: One End-to-End Investigation
+- Normalization and schema validation.
+- Stable IDs, content hashing, and parent revisions.
+- Redaction and collection-scope enforcement.
+- Provenance and omission records.
+- Package size and extraction limits.
+- Local review and import policy.
 
-1. Build a normalized fixture from the selected Titan conversation.
-2. Extract a reviewable investigation workflow and queries without inventing data structures.
-3. Implement single-file export, validation, and import.
-4. Check dependencies and execute the parameterized workflow in the recipient's environment.
-5. Validate reuse with a different time range or target.
+### 7.3 Remote Service Adapter
 
-This phase demonstrates knowledge delivery and use. It does not claim machine-wide, multi-session extraction.
+The remote adapter is responsible for:
 
-### Phase 2: Demonstrate Cross-Session Extraction
+- Authentication and authorization.
+- Upload, download, and link resolution.
+- Snapshot immutability.
+- Expiration, revocation, and access events.
+- Provider-specific retry and error reporting.
 
-1. Integrate two agent history sources that have been validated in practice.
-2. Discover sources automatically and provide project and time filtering.
-3. Use multiple related investigation records to extract corrections, repeated failures, and subsequent revisions.
-4. Demonstrate at least one useful insight that requires synthesizing multiple records.
+The provider must not be allowed to change the portable snapshot semantics.
 
-Supporting multiple sources is an internal engineering scope decision, not a reason to require users to select the source agent manually.
+### 7.4 Capability Mapper
 
-### Out of Scope for Now
+The recipient-side capability mapper compares the source requirements with local capabilities:
 
-- Deep integration with every agent.
-- Unrestricted whole-machine scanning or automatic history uploads.
-- Cloud synchronization, account systems, Git transport, or a public knowledge community.
-- General-purpose knowledge graphs, model training, or autonomous multi-agent orchestration.
-- Automatically adopting rules across projects or executing external code.
+- Host and session format support.
+- Available MCP tools and tool versions.
+- Repository and branch availability.
+- Required data access.
+- Attachment and workspace availability.
 
-## 9. Acceptance Criteria and Baseline
+It should classify each requirement as available, unavailable, changed, or unknown. The clone may proceed with explicit limitations where exact restoration is impossible.
 
-### Titan MVP Acceptance Criteria
+## 8. Security and Trust Boundaries
 
-- A can export a reviewable file from an existing investigation.
-- B does not need the original session or knowledge of the source agent.
-- B runs the investigation with their own Titan permissions and new parameters.
-- Execution results are traceable to actual queries; model claims of success are not substitutes for evidence.
-- Missing dependencies, changed data structures, no anomalies, and insufficient evidence are handled explicitly.
-- The workflow does not depend on A's private credentials or undisclosed material available only on A's machine.
+- Publishing, remote storage, importing, and resuming are separate authorization decisions.
+- Redaction is required before upload; detection is an aid, not a guarantee.
+- Never transfer credentials, tokens, cookies, private keys, or secret environment values.
+- Treat links and snapshots as bearer-like capabilities unless stronger authentication is configured.
+- Treat imported transcript text, tool arguments, and resume instructions as untrusted data.
+- Do not execute imported scripts, tool calls, shell commands, or package hooks automatically.
+- Validate archive paths, extraction size, symbolic links, unexpected file types, and decompression limits.
+- Enforce maximum transcript size, tool-result size, attachment size, and query count.
+- Use encryption in transit and at rest where supported.
+- Provide expiration and revocation controls and explain that downloaded copies cannot be revoked.
+- Keep audit records minimal and avoid copying transcript contents into operational logs.
+- Surface remote-service failures and integrity failures; do not return success-shaped fallbacks.
 
-### Knowledge Extraction Quality
+## 9. MVP Scope and Implementation Order
 
-Compare against **the same records + a strong summarization prompt + Markdown**, not just a single-session summary.
+### Phase 1: Local Snapshot Fixture
 
-Evaluate:
+1. Define the normalized session snapshot schema.
+2. Create a fixture containing messages, tool calls, results, attachments, workspace metadata, omissions, and provenance.
+3. Implement deterministic validation, hashing, and round-trip serialization.
+4. Define the redaction and review contract.
 
-- Which knowledge users actually want to keep.
-- Whether later corrections and counterexamples are incorporated correctly.
-- Whether project-specific experience is incorrectly generalized.
-- How easily sources can be inspected.
-- Whether recipients avoid unproductive attempts and refrain from applying knowledge outside its scope.
+### Phase 2: One Host Adapter
 
-Report cases where the baseline already succeeds honestly. Do not claim improvements that have not been validated.
+1. Select one agent host with an accessible current-session representation.
+2. Register a publish trigger inside that host.
+3. Capture the current session without whole-machine scanning.
+4. Create a local snapshot and render a reviewable summary.
 
-## 10. Related Work and Open Questions
+### Phase 3: Remote Publish and Link
 
-### Current Limitations of Similar Projects
+1. Add a provider-neutral remote storage interface.
+2. Implement authenticated upload and download for a development provider.
+3. Return immutable snapshot links.
+4. Add integrity checks, access state, and explicit failure reporting.
 
-The relevant pain points concern the fit of existing tools to our workflow, not an absence of competing products. Distinguish documented product boundaries from hypotheses about user friction.
+### Phase 4: Recipient Import and Clone
 
-The observations below come from the projects' public READMEs. They are not installation tests, performance benchmarks, or an exhaustive market survey. Missing documentation is not proof of a missing capability, and these observations should be rechecked as the projects evolve.
+1. Add link resolution and local validation.
+2. Show source metadata, scope, limitations, and redaction results.
+3. Add a recipient confirmation step.
+4. Create a new local session with the imported context and external provenance.
+5. Report unsupported capabilities and workspace differences.
 
-#### continues: Session Transfer Is Not Yet Evidence of Knowledge Synthesis
+### Phase 5: Cross-Host Validation
 
-Source: [continues README](https://github.com/yigitkonur/cli-continues).
+1. Validate cloning from the first host into a second local agent.
+2. Compare exact resume, partial resume, and unsupported cases.
+3. Measure manual clarification and setup required by the recipient.
+4. Preserve the knowledge-handoff plan as a later extension rather than mixing its requirements into the first MVP.
 
-- **Documented capabilities:** Discovers and parses native histories from multiple agents, transfers a selected session to another tool, and supports bulk Markdown or JSON export.
-- **Remaining friction for our scenario:** The documented primary unit is a session handoff. Exporting many sessions does not itself combine later corrections, contradictory findings, and repeated investigations into a reusable method. The handoff also references the original session's full local path, which a different user may not be able to access.
-- **What to validate:** Whether a user can derive and share a self-contained, cross-session investigation method without manually selecting, combining, and adapting exported records. Do not claim that continues lacks discovery or file export; it already provides both.
+## 10. Acceptance Criteria
 
-#### SpecStory Lore: Knowledge Mining Already Exists; Native-History Onboarding Needs Investigation
+The first end-to-end demo is complete when:
 
-Source: [Lore README](https://github.com/specstoryai/getspecstory/tree/main/lore).
+- A can trigger the tool from an active session.
+- The tool shows the capture scope before upload.
+- A can review and approve a redacted snapshot.
+- The remote service returns an immutable, integrity-verifiable link.
+- B can open the link from a different local agent or machine.
+- B can inspect the transcript, tool history, workspace metadata, and limitations.
+- B must explicitly approve cloning before a local session is created.
+- The cloned session identifies its source snapshot and external content.
+- B uses B's own identity, tools, permissions, and repository state.
+- Imported tools and commands are not automatically executed.
+- Missing capabilities, omitted data, and changed repositories are reported explicitly.
+- A later snapshot revision does not mutate an earlier published snapshot.
+- No credential or secret from A is required for B to resume the work.
 
-- **Documented capabilities:** Mines SpecStory histories across agents, sessions, projects, and teammates; uses evidence and outcome signals; generates reusable Skills; and proposes updates as evidence grows. It is optimized for Claude Code while documenting fallback behavior for other hosts.
-- **Remaining friction for our scenario:** The documented input corpus is SpecStory history, whereas our entry point is the native session history already present on a user's machine. The reviewed README does not establish the complete onboarding path from untouched native histories. Existing conversion or backfill options must be checked before claiming a limitation.
-- **What to validate:** The setup and manual preparation required to use those existing histories, followed by the steps needed for a different user to adopt a Titan investigation with new parameters and local tool bindings. Do not claim that cross-session mining, team-aware knowledge, evidence-backed Skills, or multi-agent reuse are unique to us.
+## 11. Out of Scope for the First MVP
 
-#### Waybill: Portable Handoff Does Not Include History Mining or Workflow Execution
+- Cloning a live process, model context window, or in-memory tool connection.
+- Automatic synchronization of repositories or complete workspaces.
+- Transfer of credentials, access tokens, private keys, or service connections.
+- Automatic execution of imported commands or scripts.
+- Unrestricted scanning of all local sessions.
+- Guaranteed semantic equivalence across every agent host.
+- Knowledge-graph construction, model training, or autonomous multi-agent orchestration.
+- Automatic merging of two users' concurrent session branches.
 
-Source: [Waybill README](https://github.com/wardmos/waybill).
+## 12. Open Design Questions
 
-- **Documented capabilities:** Local, reviewable handoff bundles; agent integrations; export/import; redaction; packing and unpacking; and repository verification. It explicitly states that it does not parse agent transcripts and is not a workflow runner.
-- **Remaining friction for our scenario:** Users need another layer to extract methods from existing histories and to run a parameterized Titan investigation in a recipient's environment. Its safety-oriented handoff scope is intentional, not a defect in its implementation.
-- **What to validate:** Whether our extraction and controlled execution layers reduce the additional work compared with using Waybill plus the receiving agent. Its Git inspection collects repository evidence; it is not Git-based knowledge transport. We must not present local file sharing or safe import as missing features.
+- Which host should be implemented first, and what supported API exposes its current session?
+- Which remote provider should be used for the MVP?
+- Should links be account-bound, team-scoped, expiring bearer links, or a combination?
+- Which transcript fields are required for exact resume versus useful handoff?
+- Should selected diffs and files be embedded, referenced, or separately approved?
+- How should a recipient authenticate when the source and recipient belong to different organizations?
+- Which session fields can be translated across hosts without misleading the recipient?
+- How should the product expose clone revisions and divergence?
+- When should the optional knowledge-extraction workflow run on a snapshot?
 
-#### Portable Handoff: Structural Validation Does Not Prove Knowledge Transfer
+## 13. One-Sentence Pitch
 
-Source: [Portable Handoff README](https://github.com/legoambarish/portable-handoff).
-
-- **Documented capabilities:** A single Markdown capsule containing canonical JSON, provenance labels, deterministic repository facts, integrity checks, staleness detection, and secret redaction.
-- **Documented limitation:** Its Limits section states that semantic quality depends on the model doing the compaction, that compaction loses information, and that its quality harness cannot establish how much useful knowledge the model supplied.
-- **Remaining friction for our scenario:** A valid capsule and matching repository evidence do not establish that the investigation method applies to a different Titan environment or data range. This is also a challenge our project must solve, not an automatic advantage we possess.
-- **What to validate:** Whether source-linked extraction and recipient-side capability and metric checks reduce unsupported conclusions, missed prerequisites, and failed attempts on a new investigation.
-
-### Proposed Opportunity and How to Test It
-
-The proposed differentiation is an integrated workflow, not a claim that each individual capability is new:
-
-```text
-Existing native histories
-    → Cross-session methods, corrections, and evidence
-    → Reviewed, parameterized investigation package
-    → Adoption by another user with their own tools and permissions
-    → Results grounded in actual queries
-```
-
-Validate three specific sources of friction:
-
-1. **Preparing the input:** What must users install, export, convert, or select before existing sessions can be mined?
-2. **Producing reusable knowledge:** How much manual work is needed to reconcile corrections, preserve evidence, and separate reusable methods from one-off results?
-3. **Making it work for someone else:** How much manual editing, dependency setup, parameter replacement, and clarification is needed before the recipient can perform a new investigation?
-
-Use the same authorized session corpus and new investigation task when comparing a strong Markdown baseline, an existing tool or combination of tools, and our prototype. Record preparation steps, manual edits, clarification requests, inaccessible references, and actual query outcomes. Report strengths and failures for every approach without inventing savings or success rates.
-
-Our integration may introduce its own costs: native-format maintenance, model analysis cost, and tool-adapter setup. Include those in the comparison. If existing tools already handle the scenario well, consider extending or composing them rather than duplicating their functionality.
-
-### Existing Capabilities We Should Reuse or Match
-
-- [Agent Skills](https://github.com/agentskills/agentskills) already provides an open format for portable knowledge and workflows. Compatibility may be preferable to another standalone knowledge format.
-- Local operation, cross-agent support, single-file or packaged sharing, redaction, provenance, staleness checks, and cross-session mining already exist in related projects. None should be presented as a standalone unique differentiator.
-- An honest claim for this hackathon is to demonstrate one complete native-history-to-Titan-reuse workflow and measure the remaining manual work—not to claim that existing projects cannot share knowledge.
-
-### Open Questions
-
-- The actual Titan conversation fixture and what may be shared from it.
-- Titan's current tool interfaces, metric definitions, and recipient permissions.
-- A second set of investigation parameters and a credible validation method for the demo.
-- Hackathon team size and time budget.
-- The initial adapter implementation and test scope, determined internally rather than required as user input.
-
-## 11. One-Sentence Pitch
-
-> Extract evidence-backed knowledge with explicit applicability boundaries from coding agent histories, and turn a Titan latency investigation into a portable method that another user's agent can reuse in its own environment.
+> Publish an approved, verifiable snapshot of an active coding-agent session to a remote link, then let another user safely clone and resume that work in their own local agent.
