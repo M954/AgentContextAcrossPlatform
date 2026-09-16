@@ -2,8 +2,8 @@
 
 **Publish a resumable remote clone of an active coding-agent session so another user can continue it in their own local agent.**
 
-> **Status: Hackathon design stage. No working plugin, MCP server, or remote session service has been implemented yet.**
-> See the [active project plan](docs/PROJECT_PLAN.md) for the target architecture and MVP.
+> **Status: Local prototype implemented. The current service is loopback-only and intended for test data; production authentication, authorization, and remote storage are not implemented yet.**
+> See the [active project plan](docs/PROJECT_PLAN.md) for the target architecture and security requirements.
 
 ## Target
 
@@ -31,6 +31,21 @@ The link identifies a versioned snapshot. It does not transfer a live process, c
 - Imported transcript text and tool calls are untrusted data and are not executed automatically.
 - A cloned session uses the recipient's own identity, permissions, tools, and repository state.
 - Unsupported host capabilities and missing workspace data are reported explicitly.
+
+## Privacy, Security, and Permissions
+
+This project handles conversation history, tool activity, repository metadata, and potentially sensitive workspace data. Privacy and security are core product requirements.
+
+- Sharing is **default-deny**: nothing is uploaded until the user selects a scope, reviews exclusions and redactions, and confirms publication.
+- The default scope contains the current task context and repository metadata. Files, diffs, attachments, environment data, and historical sessions require explicit selection.
+- Credentials, tokens, cookies, private keys, `.env` files, credential stores, and secret environment values are blocked or redacted locally before upload.
+- High-confidence secrets that cannot be safely redacted must block publication.
+- Imported transcript text, tool arguments, paths, and commands are untrusted data. They are never executed automatically.
+- The recipient uses their own identity, tools, permissions, and repository. Source connections and credentials are never transferred.
+- Production links require authentication and access control. Expiration, revocation, and minimal audit events are required.
+- Downloaded copies cannot be revoked, so the UI must state this before sharing.
+
+The initial prototype is loopback-only and stores snapshots locally for testing. It has no production authentication or remote encryption and must not be used to share real secrets or sensitive customer data.
 
 ## Proposed MCP Operations
 
@@ -75,6 +90,26 @@ For true native sharing and resumption, each user installs or enables one local 
 Users do not install anything per session or per link, and they do not need to run the remote storage service locally. Initial setup configures the remote endpoint and user authentication.
 
 Without a compatible host adapter, the link can still provide a web preview or downloadable transcript, but it cannot create a native resumable session.
+
+## Local Prototype
+
+The repository currently includes a dependency-free local service and fixture adapter. It implements the safe workflow boundary without claiming to be a production remote service:
+
+```powershell
+npm test
+npm start
+```
+
+In another terminal:
+
+```powershell
+npm run share -- --input fixtures/sample-session.json
+npm run share -- --input fixtures/sample-session.json --approve
+npm run inspect -- <returned-link>
+npm run resume -- <returned-link> --output .data\clones\sample.json
+```
+
+The service binds to `127.0.0.1`, stores snapshots under `.data\`, rejects non-local access modes, validates content hashes, blocks high-confidence bearer tokens and private keys, and never replays imported tools. This prototype has no user authentication, team authorization, production encryption, or native host-session integration.
 
 ## Documentation
 

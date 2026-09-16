@@ -1,9 +1,11 @@
 # AgentContextAcrossPlatform - Remote Session Clone Project Plan
 
-> Status: Active design direction; not implemented.
+> Status: Active design direction; a dependency-free loopback prototype now implements the publish, inspect, verify, and clone boundaries with synthetic fixtures.
 > This plan defines the new primary goal: publish a resumable agent-session snapshot to a remote location and let another user clone it into their local agent.
 >
 > The previous knowledge-handoff plan is preserved in [KNOWLEDGE_HANDOFF_PLAN.md](KNOWLEDGE_HANDOFF_PLAN.md).
+
+The prototype is for local testing only. It intentionally does not provide production identity, team authorization, remote encryption, or native agent-host integration.
 
 ## 1. Product Definition
 
@@ -318,20 +320,80 @@ The recipient-side capability mapper compares the source requirements with local
 
 It should classify each requirement as available, unavailable, changed, or unknown. The clone may proceed with explicit limitations where exact restoration is impossible.
 
-## 8. Security and Trust Boundaries
+## 8. Security, Privacy, and Permission Model
 
-- Publishing, remote storage, importing, and resuming are separate authorization decisions.
-- Redaction is required before upload; detection is an aid, not a guarantee.
-- Never transfer credentials, tokens, cookies, private keys, or secret environment values.
-- Treat links and snapshots as bearer-like capabilities unless stronger authentication is configured.
-- Treat imported transcript text, tool arguments, and resume instructions as untrusted data.
-- Do not execute imported scripts, tool calls, shell commands, or package hooks automatically.
-- Validate archive paths, extraction size, symbolic links, unexpected file types, and decompression limits.
-- Enforce maximum transcript size, tool-result size, attachment size, and query count.
-- Use encryption in transit and at rest where supported.
-- Provide expiration and revocation controls and explain that downloaded copies cannot be revoked.
-- Keep audit records minimal and avoid copying transcript contents into operational logs.
-- Surface remote-service failures and integrity failures; do not return success-shaped fallbacks.
+Privacy and security are product requirements, not implementation details. The system must make data movement visible, collect the minimum required material, and fail closed when it cannot establish that a snapshot is safe to publish or import.
+
+### 8.1 Default-Deny Collection
+
+- Publishing is opt-in; opening or inspecting a link must never upload local data.
+- The default scope is the current conversation, tool activity, task summary, and repository metadata.
+- Files, diffs, attachments, environment details, and historical sessions require separate user selection.
+- Never scan the whole home directory, all local sessions, or all repositories by default.
+- Block known sensitive locations such as credential stores, SSH directories, cloud-provider configuration, `.env` files, token caches, and private key files.
+- Record included, excluded, omitted, and unavailable categories in the manifest.
+- A failed or incomplete capture must be reported as incomplete, not represented as a successful full snapshot.
+
+### 8.2 Permission Matrix
+
+| Action | Required permission | Default |
+|---|---|---|
+| Read the current session | Local host permission | Required for `session_publish` |
+| Read selected workspace data | Explicit user selection | Disabled |
+| Upload a snapshot | Publish permission and confirmation | Disabled until confirmed |
+| Inspect a remote snapshot | Link access plus account policy | Read-only |
+| Create a local clone | Recipient confirmation | Disabled until confirmed |
+| Execute a new tool call | Recipient's local agent policy | Never inherited |
+| Revoke access | Snapshot owner or administrator | Owner-controlled |
+
+The source user's permissions, credentials, tool connections, and access grants must never be serialized as transferable session state.
+
+### 8.3 Secret Detection and Redaction
+
+Secret handling must happen locally before any remote upload or model-assisted summarization:
+
+1. Apply deterministic detectors for credentials, bearer tokens, private keys, connection strings, and sensitive environment values.
+2. Replace detected values with typed placeholders.
+3. Preserve only the category and location of a redaction, never the matched value.
+4. Show redaction counts and blocked items to the user.
+5. Require explicit confirmation for medium-confidence findings.
+6. Fail closed for high-confidence secrets that cannot be safely redacted.
+
+Redaction is not proof that a snapshot is safe. Users must review the complete inclusion and exclusion report.
+
+### 8.4 Remote Access and Link Security
+
+- Production services require authenticated users and explicit owner, team, or recipient authorization.
+- Account-bound access is the default; bearer links are opt-in, short-lived, and clearly labelled.
+- Links must not contain credentials or raw snapshot contents.
+- Snapshots are immutable; revisions create new IDs and never overwrite old content.
+- Support expiration, revocation, and access audit events.
+- Encrypt data in transit and at rest. A future high-sensitivity mode may encrypt snapshot contents client-side so the service cannot read them.
+- Explain that revocation cannot remove copies already downloaded by recipients.
+- Keep operational logs minimal and never copy transcript contents or secret values into them.
+
+### 8.5 Import and Execution Boundaries
+
+- Imported transcript text, tool arguments, paths, diffs, and resume instructions are untrusted data.
+- Do not execute imported commands, scripts, MCP calls, package hooks, or patch files automatically.
+- Validate schema version, content hash or signature, size limits, archive paths, symbolic links, file types, and decompression limits before import.
+- Resolve workspace paths only against a user-selected local workspace; never use a package path as authority to read arbitrary local files.
+- Show capability mismatches and repository differences before creating the clone.
+- The cloned session must pause before its first new tool call.
+
+### 8.6 Local Prototype Boundary
+
+The first local prototype is intentionally limited:
+
+- It binds to loopback by default.
+- It uses local file storage and has no production identity, team authorization, or remote encryption.
+- It must be used only with synthetic or explicitly approved test data.
+- Its local link is a development transport, not a secure internet-sharing mechanism.
+- Production remote storage, authentication, authorization, signing, and audit behavior must be implemented before external sharing.
+
+The prototype must state these limitations in its startup output and documentation rather than implying that localhost behavior proves production security.
+
+All security-sensitive failures must be surfaced explicitly; the service must not return success-shaped fallbacks.
 
 ## 9. MVP Scope and Implementation Order
 

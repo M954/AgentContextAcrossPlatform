@@ -1,0 +1,18 @@
+{
+  "name": "agent-context-across-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local prototype for publishing and cloning agent session snapshots.",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/cli.js serve",
+    "share": "node src/cli.js share",
+    "inspect": "node src/cli.js inspect",
+    "resume": "node src/cli.js resume",
+    "clone": "node src/cli.js clone",
+    "test": "node --test"
+  }
+}

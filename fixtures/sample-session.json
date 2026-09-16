@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "1.0",
+  "source": {
+    "host": "fixture-host",
+    "sessionId": "fixture-session-001"
+  },
+  "task": {
+    "title": "Implement remote session cloning",
+    "summary": "Validate publishing a reviewed session snapshot and creating a local clone."
+  },
+  "events": [
+    {
+      "eventId": "event-001",
+      "type": "user_message",
+      "timestamp": "2026-09-16T00:00:00.000Z",
+      "content": "Share this approved session context with another local agent."
+    },
+    {
+      "eventId": "event-002",
+      "type": "tool_result",
+      "timestamp": "2026-09-16T00:01:00.000Z",
+      "content": "The local snapshot was prepared without executing imported tools."
+    }
+  ],
+  "workspace": {
+    "repository": "AgentContextAcrossPlatform",
+    "branch": "main",
+    "commit": "fixture",
+    "changes": []
+  },
+  "resume": {
+    "completed": [
+      "Defined a reviewed snapshot boundary.",
+      "Recorded that imported tools must not be replayed automatically."
+    ],
+    "open": [
+      "Create a local session from the verified snapshot."
+    ],
+    "nextAction": "Inspect the snapshot and confirm the local clone before continuing."
+  },
+  "requiredCapabilities": [
+    "session-snapshot-import"
+  ]
+}
