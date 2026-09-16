@@ -55,6 +55,27 @@ Host-specific command syntax may differ, but the first MCP surface should provid
 7. Create a new local session with external provenance.
 8. Resume only after the recipient confirms the next action.
 
+## Customer Interface
+
+The customer-facing experience should be two actions:
+
+```text
+/session share
+/session resume <link>
+```
+
+The sharer chooses the capture scope, reviews redactions and exclusions, confirms publication, and receives an authenticated link.
+
+The recipient opens or pastes the link, reviews the captured context and limitations, checks local capabilities and repository state, and confirms creation of a new local session. The recipient's agent pauses before running any new tool call.
+
+## Installation Model
+
+For true native sharing and resumption, each user installs or enables one local host adapter per supported agent. The adapter provides the `/session` commands, captures the current session, and creates the local clone.
+
+Users do not install anything per session or per link, and they do not need to run the remote storage service locally. Initial setup configures the remote endpoint and user authentication.
+
+Without a compatible host adapter, the link can still provide a web preview or downloadable transcript, but it cannot create a native resumable session.
+
 ## Documentation
 
 - [Active remote session clone project plan](docs/PROJECT_PLAN.md)

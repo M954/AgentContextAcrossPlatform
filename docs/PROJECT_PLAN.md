@@ -106,6 +106,36 @@ The local adapter should create a new session with:
 
 The cloned session is a new local session. It is not an impersonation of the source user and does not inherit the source user's active connections.
 
+### 3.4 Customer-Facing Workflow
+
+The customer interface should expose two simple actions even though they map to several internal operations:
+
+```text
+Share this session
+Resume from shared link
+```
+
+#### User A: Share
+
+1. Trigger `/session share` from the active session.
+2. Choose the capture scope, using safe defaults for conversation, tool history, task summary, and repository metadata.
+3. Review redactions, selected files, attachments, and omitted content.
+4. Confirm **Publish session**.
+5. Copy the authenticated link, expiration, and access scope.
+
+The review should show counts and exclusions, for example: messages, tool calls, selected diffs, attachments, redacted values, and the source repository commit.
+
+#### User B: Resume
+
+1. Open the link or paste it into `/session resume <link>`.
+2. Authenticate if required.
+3. Review the source session, captured scope, warnings, and limitations.
+4. Check local host capabilities, repository state, and available tools.
+5. Confirm **Create local session**.
+6. Continue from the cloned session after the agent pauses for the first local action.
+
+Opening a link is inspection only. Resume confirmation creates a new local session and never automatically replays imported tools or modifies the recipient's repository.
+
 ## 4. Logical MCP Surface
 
 Exact names may vary by host, but the first MCP server should expose equivalent operations:
@@ -385,3 +415,21 @@ The first end-to-end demo is complete when:
 ## 13. One-Sentence Pitch
 
 > Publish an approved, verifiable snapshot of an active coding-agent session to a remote link, then let another user safely clone and resume that work in their own local agent.
+
+## 14. Installation and Distribution
+
+True `/session share` and `/session resume` behavior requires a local host adapter. The adapter is needed because an MCP server cannot assume access to the host's complete current transcript or know how to create a native session in every agent.
+
+### Customer Installation Model
+
+- Each user installs or enables the AgentContextAcrossPlatform host integration once per supported agent.
+- The same integration provides both sharing and resuming for that host.
+- Users do not install anything per session or per link.
+- Users do not run the remote storage service locally; the host integration connects to the configured remote service.
+- The first setup configures the remote endpoint, signs the user in, and grants the host adapter permission to read the current session and create a local clone.
+
+The recommended package is a host extension plus a local MCP/bridge process. The extension registers the customer-facing commands and the bridge handles capture, validation, upload, download, and local session creation.
+
+### No-Install Fallback
+
+A user without a compatible host adapter may be able to view or download a snapshot through the web link, but cannot get true native session resumption. The fallback must be described as a transcript or summary handoff, not as a cloned session.
