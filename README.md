@@ -73,7 +73,7 @@ copilot --allow-tool "agent-context(session_publish)" -p "Prepare a session revi
 
 Use separate approvals for `agent-context(session_inspect)` and `agent-context(session_clone)`. Do not use `--allow-all` for this integration; publication and cloning must remain explicit user decisions.
 
-The current MCP integration accepts a normalized snapshot supplied by the host or model; it does not yet read the live Copilot transcript automatically. Native capture is the next host-adapter task. The current clone operation is file-backed and must not be described as native session resumption.
+The current MCP integration accepts a normalized snapshot supplied by the host or model; it does not yet read the live Copilot transcript automatically. Native capture is the next host-adapter task. `session_clone` previews without writing unless `approval` is the boolean `true`, refuses to overwrite existing output, and reports `context_imported`, `restoreMode: context_document`, and `executionReadiness: not_assessed`. The target host is only a label; no native session is created or environment compatibility assessed. The approval argument is not an authenticated human-consent receipt; host tool permissions and user review remain necessary.
 
 ## Proposed MCP Operations
 
@@ -121,7 +121,7 @@ Without a compatible host adapter, the link can still provide a web preview or d
 
 ## Local Prototype
 
-The repository currently includes a dependency-free local service and fixture adapter. It implements the safe workflow boundary without claiming to be a production remote service:
+The repository currently includes a dependency-free local service and fixture-based CLI. It creates context-document JSON files, not native agent sessions, and is not a production remote service:
 
 ```powershell
 npm test
@@ -134,8 +134,26 @@ In another terminal:
 npm run share -- --input fixtures/sample-session.json
 npm run share -- --input fixtures/sample-session.json --approve
 npm run inspect -- <returned-link>
+npm run inspect -- <returned-link> --json
 npm run resume -- <returned-link> --output .data\clones\sample.json
+npm run resume -- <returned-link> --output .data\clones\sample.json --approve
 ```
+
+`share`, `resume`, and its `clone` alias preview by default and return exit code `2` (`review-required`). A bare `--approve` flag authorizes the write; values such as `--approve false` do not. Previewing a clone does not create output files or directories. The full snapshot can be reviewed with `inspect --json`.
+
+Approved `resume`/`clone` output explicitly reports:
+
+```json
+{
+  "status": "context_imported",
+  "restoreMode": "context_document",
+  "executionReadiness": "not_assessed"
+}
+```
+
+No native session is created, no environment compatibility is checked, and no imported tools are executed. `--host` is only a target label in the context document, not proof of host support. Existing output files are never overwritten, including by concurrent invocations; choose another `--output` path to create another copy. Without `--output`, each invocation generates a new filename, so provide a path when reviewing a specific destination.
+
+The approval flag is a local CLI guard, not authenticated user consent or a digest-bound review receipt. Those stronger host-level controls remain planned. Redaction handles supported key/value patterns, including quoted inline values, and blocks incomplete quoted credential values, but is not a comprehensive secret detector. Use synthetic data and review all output before sharing.
 
 The service binds to `127.0.0.1`, stores snapshots under `.data\`, rejects non-local access modes, validates content hashes, blocks high-confidence bearer tokens and private keys, and never replays imported tools. This prototype has no user authentication, team authorization, production encryption, or native host-session integration.
 

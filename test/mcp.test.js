@@ -75,18 +75,30 @@ function toolValue(response) {
   return JSON.parse(response.result.content[0].text);
 }
 
-test('serves the publish, inspect, and clone workflow through MCP STDIO', async (t) => {
+async function setupMcp(t) {
   const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-context-mcp-service-'));
   const cloneDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-context-mcp-clones-'));
   const service = await startServer({ port: 0, dataDir });
   const client = startMcpClient(service.url, cloneDir);
 
   t.after(async () => {
-    service.server.close();
-    if (!client.child.killed) {
-      client.child.kill();
+    if (client.child.exitCode === null && client.child.signalCode === null) {
+      await new Promise((resolve) => {
+        client.child.once('exit', resolve);
+        client.child.kill();
+      });
     }
+    await new Promise((resolve, reject) => {
+      service.server.close((error) => error ? reject(error) : resolve());
+    });
+    await fs.rm(dataDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+    await fs.rm(cloneDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   });
+  return { client, cloneDir };
+}
+
+test('serves the publish, inspect, and context-document workflow through MCP STDIO', { timeout: 15000 }, async (t) => {
+  const { client, cloneDir } = await setupMcp(t);
 
   const fixture = JSON.parse(
     await fs.readFile(path.join(__dirname, '..', 'fixtures', 'sample-session.json'), 'utf8'),
@@ -137,6 +149,9 @@ test('serves the publish, inspect, and clone workflow through MCP STDIO', async 
     }),
   );
   assert.equal(confirmation.status, 'confirmation-required');
+  assert.equal(confirmation.restoreMode, 'context_document');
+  assert.equal(confirmation.executionReadiness, 'not_assessed');
+  assert.deepEqual(await fs.readdir(cloneDir), []);
 
   const cloned = toolValue(
     await client.send('tools/call', {
@@ -149,9 +164,74 @@ test('serves the publish, inspect, and clone workflow through MCP STDIO', async 
       },
     }),
   );
-  assert.equal(cloned.status, 'cloned');
+  assert.equal(cloned.status, 'context_imported');
+  assert.equal(cloned.restoreMode, 'context_document');
+  assert.equal(cloned.executionReadiness, 'not_assessed');
+  assert.equal(cloned.safety.nativeSessionCreated, false);
   assert.equal(cloned.safety.toolsReplayed, false);
   assert.equal(cloned.safety.repositoryModified, false);
   await fs.access(path.join(cloneDir, 'mcp-clone.json'));
   assert.equal(client.getStderr(), '');
+});
+
+test('MCP clone requires boolean approval and refuses to overwrite existing output', { timeout: 15000 }, async (t) => {
+  const { client, cloneDir } = await setupMcp(t);
+  const fixture = JSON.parse(
+    await fs.readFile(path.join(__dirname, '..', 'fixtures', 'sample-session.json'), 'utf8'),
+  );
+  const published = toolValue(await client.send('tools/call', {
+    name: 'session_publish',
+    arguments: { snapshot: fixture, approval: true },
+  }));
+  const outputPath = 'nested/context.json';
+  for (const approval of [undefined, false, 'false', 'true']) {
+    const preview = toolValue(await client.send('tools/call', {
+      name: 'session_clone',
+      arguments: { link: published.link, outputPath, approval },
+    }));
+    assert.equal(preview.status, 'confirmation-required');
+    assert.equal(preview.executionReadiness, 'not_assessed');
+    await assert.rejects(fs.lstat(path.join(cloneDir, 'nested')), { code: 'ENOENT' });
+  }
+
+  const args = { link: published.link, outputPath, approval: true };
+  const created = toolValue(await client.send('tools/call', { name: 'session_clone', arguments: args }));
+  assert.equal(created.status, 'context_imported');
+  const original = await fs.readFile(path.join(cloneDir, outputPath), 'utf8');
+  const stored = JSON.parse(original);
+  assert.equal(stored.restoreMode, created.restoreMode);
+  assert.equal(stored.executionReadiness, 'not_assessed');
+  assert.equal(stored.safety.nativeSessionCreated, false);
+
+  const duplicate = await client.send('tools/call', { name: 'session_clone', arguments: args });
+  assert.equal(duplicate.result.isError, true);
+  assert.match(toolValue(duplicate).error, /Refusing to overwrite/);
+  assert.equal(await fs.readFile(path.join(cloneDir, outputPath), 'utf8'), original);
+});
+
+test('concurrent MCP clone requests cannot clobber the same destination', { timeout: 15000 }, async (t) => {
+  const { client, cloneDir } = await setupMcp(t);
+  const fixture = JSON.parse(
+    await fs.readFile(path.join(__dirname, '..', 'fixtures', 'sample-session.json'), 'utf8'),
+  );
+  const published = toolValue(await client.send('tools/call', {
+    name: 'session_publish',
+    arguments: { snapshot: fixture, approval: true },
+  }));
+  const params = {
+    name: 'session_clone',
+    arguments: { link: published.link, outputPath: 'concurrent.json', approval: true },
+  };
+  const results = await Promise.all([
+    client.send('tools/call', params),
+    client.send('tools/call', params),
+  ]);
+  assert.equal(results.filter(result => result.result.isError).length, 1);
+  const winner = toolValue(results.find(result => !result.result.isError));
+  const loser = toolValue(results.find(result => result.result.isError));
+  assert.equal(winner.status, 'context_imported');
+  assert.match(loser.error, /Refusing to overwrite/);
+  const stored = JSON.parse(await fs.readFile(path.join(cloneDir, 'concurrent.json'), 'utf8'));
+  assert.equal(stored.cloneId, winner.cloneId);
+  assert.equal(stored.executionReadiness, 'not_assessed');
 });

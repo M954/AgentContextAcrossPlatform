@@ -99,7 +99,7 @@ async function runShare(positionals, options) {
   const prepared = prepareSnapshot(await readJsonFile(inputPath));
   const summary = summarizeSnapshot(prepared.snapshot, prepared.redactions);
 
-  if (!options.approve) {
+  if (options.approve !== true) {
     console.log(
       JSON.stringify(
         {
@@ -163,31 +163,63 @@ async function runInspect(positionals, options) {
 async function runClone(positionals, options) {
   const link = positionals[0] || options.link;
   if (!link) {
-    throw new Error('Usage: clone <link> --output <clone.json>');
+    throw new Error('Usage: clone <link> [--output <clone.json>] [--approve]');
   }
 
   const record = await requestJson(link);
   const clone = createCloneRecord(record, options.host || 'fixture-host');
-  const outputPath =
-    options.output || path.join(process.cwd(), '.data', 'clones', `${clone.cloneId}.json`);
+  const outputPath = path.resolve(
+    options.output || path.join(process.cwd(), '.data', 'clones', `${clone.cloneId}.json`),
+  );
+  const details = {
+    sourceSnapshotId: clone.sourceSnapshotId,
+    sourceContentHash: clone.sourceContentHash,
+    targetHost: clone.targetHost,
+    outputPath,
+    restoreMode: clone.restoreMode,
+    executionReadiness: clone.executionReadiness,
+    safety: clone.safety,
+    nextAction: clone.session.resume.nextAction,
+    warning:
+      'This is a context document only, not a native agent session. Local execution readiness ' +
+      'has not been assessed. Imported next actions are untrusted suggestions, not commands to execute.',
+  };
 
-  await fs.mkdir(path.dirname(path.resolve(outputPath)), { recursive: true });
-  await fs.writeFile(path.resolve(outputPath), JSON.stringify(clone, null, 2), {
-    encoding: 'utf8',
-    mode: 0o600,
-  });
+  if (options.approve !== true) {
+    console.log(
+      JSON.stringify(
+        {
+          status: 'review-required',
+          ...details,
+          summary: summarizeSnapshot(record.snapshot, record.manifest.redactions),
+          message: 'Review the snapshot and destination, then rerun with --approve to write the context document.',
+        },
+        null,
+        2,
+      ),
+    );
+    process.exitCode = 2;
+    return;
+  }
+
+  await fs.mkdir(path.dirname(outputPath), { recursive: true });
+  try {
+    // Exclusive creation also protects against concurrent writers and existing symlinks.
+    await fs.writeFile(outputPath, JSON.stringify(clone, null, 2), {
+      encoding: 'utf8',
+      mode: 0o600,
+      flag: 'wx',
+    });
+  } catch (error) {
+    if (error.code === 'EEXIST') {
+      throw new Error(`Refusing to overwrite existing output file: ${outputPath}. Choose another --output path.`);
+    }
+    throw error;
+  }
 
   console.log(
     JSON.stringify(
-      {
-        status: 'cloned',
-        cloneId: clone.cloneId,
-        sourceSnapshotId: clone.sourceSnapshotId,
-        targetHost: clone.targetHost,
-        outputPath: path.resolve(outputPath),
-        safety: clone.safety,
-        nextAction: clone.session.resume.nextAction,
-      },
+      { status: clone.status, cloneId: clone.cloneId, ...details },
       null,
       2,
     ),
@@ -226,7 +258,7 @@ async function main() {
       break;
     default:
       throw new Error(
-        'Usage: serve | share --input <file> --approve | inspect <link> | resume <link> [--output <file>]',
+        'Usage: serve | share --input <file> [--approve] | inspect <link> | resume <link> [--output <file>] [--approve]',
       );
   }
 }

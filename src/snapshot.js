@@ -105,7 +105,7 @@ function validateSessionSnapshot(snapshot) {
 const SECRET_KEY_PATTERN =
   /(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|private[_-]?key|authorization)/i;
 const INLINE_SECRET_PATTERN =
-  /((?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|private[_-]?key)\s*[:=]\s*)([^\s,;]+)/gi;
+  /(["']?(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|private[_-]?key)["']?\s*[:=]\s*)(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|([^\s,;]+))/gi;
 const BEARER_PATTERN = /\bBearer\s+[A-Za-z0-9._~+/=-]+/g;
 const PRIVATE_KEY_PATTERN = /-----BEGIN [A-Z ]*PRIVATE KEY-----/;
 
@@ -121,9 +121,15 @@ function redactValue(value, path, state) {
       return '[REDACTED_BEARER_TOKEN]';
     });
 
-    redacted = redacted.replace(INLINE_SECRET_PATTERN, (prefix) => {
+    redacted = redacted.replace(INLINE_SECRET_PATTERN, (_match, prefix, doubleQuoted, singleQuoted, bare) => {
+      // An unterminated quoted value must not leave the rest of its secret in the text.
+      if (bare !== undefined && (bare.startsWith('"') || bare.startsWith("'"))) {
+        state.blocked.push(path);
+        return `${prefix}[REDACTED]`;
+      }
       state.redactions.push(path);
-      return `${prefix}[REDACTED]`;
+      const quote = doubleQuoted !== undefined ? '"' : singleQuoted !== undefined ? "'" : '';
+      return `${prefix}${quote}[REDACTED]${quote}`;
     });
 
     return redacted;
@@ -233,10 +239,14 @@ function createCloneRecord(record, targetHost = 'fixture-host') {
   return {
     cloneId: `clone_${Date.now().toString(36)}_${crypto.randomBytes(6).toString('hex')}`,
     sourceSnapshotId: record.manifest.snapshotId,
+    sourceContentHash: record.manifest.contentHash,
     createdAt: new Date().toISOString(),
     targetHost,
-    status: 'ready',
+    status: 'context_imported',
+    restoreMode: 'context_document',
+    executionReadiness: 'not_assessed',
     safety: {
+      nativeSessionCreated: false,
       importedAsExternalContext: true,
       sourceCredentialsImported: false,
       toolsReplayed: false,
