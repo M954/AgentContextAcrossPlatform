@@ -4,6 +4,9 @@ const crypto = require('node:crypto');
 
 const SNAPSHOT_SCHEMA_VERSION = '1.0';
 const MAX_EVENT_COUNT = 5000;
+const MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024;
+const MAX_TEXT_BYTES = 128 * 1024;
+const { containedPath } = require('./local-files');
 
 class SecretDetectionError extends Error {
   constructor(paths) {
@@ -21,7 +24,31 @@ function isObject(value) {
 }
 
 function cloneJson(value) {
+  checkJson(value);
   return JSON.parse(JSON.stringify(value));
+}
+
+function checkJson(value, depth = 0, budget = { nodes: 0 }) {
+  budget.nodes += 1;
+  if (depth > 30 || budget.nodes > 100000) invalid('', 'JSON structure exceeds limits');
+  if (value === null || typeof value === 'boolean') return;
+  if (typeof value === 'string') {
+    if (Buffer.byteLength(value, 'utf8') > MAX_TEXT_BYTES) invalid('', 'text exceeds size limit');
+    return;
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) return;
+  if (Array.isArray(value)) {
+    for (const item of value) checkJson(item, depth + 1, budget);
+    return;
+  }
+  if (!isObject(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) {
+    invalid('', 'only JSON values are supported');
+  }
+  for (const [key, child] of Object.entries(value)) {
+    if (['__proto__', 'constructor', 'prototype'].includes(key)) invalid('', 'unsafe property');
+    if (key.length > 256 || /[\x00-\x1f]/.test(key)) invalid('', 'invalid property name');
+    checkJson(child, depth + 1, budget);
+  }
 }
 
 function canonicalJson(value) {
@@ -48,8 +75,20 @@ function invalid(path, message) {
 }
 
 function validateSessionSnapshot(snapshot) {
+  checkJson(snapshot);
   if (!isObject(snapshot)) {
     invalid('', 'expected an object');
+  }
+  const allowed = new Set(['schemaVersion', 'source', 'task', 'events', 'workspace', 'resume',
+    'requiredCapabilities', 'omitted', 'files']);
+  if (Object.keys(snapshot).some((key) => !allowed.has(key))) {
+    invalid('', 'unsupported top-level field; record unsupported attachments or state as omissions');
+  }
+  for (const field of ['omitted', 'requiredCapabilities']) {
+    if (snapshot[field] !== undefined &&
+        (!Array.isArray(snapshot[field]) || snapshot[field].some((value) => typeof value !== 'string'))) {
+      invalid(field, 'expected a list of strings');
+    }
   }
 
   if (snapshot.schemaVersion !== SNAPSHOT_SCHEMA_VERSION) {
@@ -72,6 +111,7 @@ function validateSessionSnapshot(snapshot) {
     invalid('events', `expected an array with at most ${MAX_EVENT_COUNT} entries`);
   }
 
+  const eventIds = new Set();
   snapshot.events.forEach((event, index) => {
     if (!isObject(event)) {
       invalid(`events[${index}]`, 'expected an object');
@@ -85,6 +125,9 @@ function validateSessionSnapshot(snapshot) {
     if (typeof event.timestamp !== 'string' || event.timestamp.length === 0) {
       invalid(`events[${index}].timestamp`, 'expected a non-empty string');
     }
+    if (!Number.isFinite(Date.parse(event.timestamp))) invalid('events', 'invalid timestamp');
+    if (eventIds.has(event.eventId)) invalid('events', 'duplicate event ID');
+    eventIds.add(event.eventId);
   });
 
   if (!isObject(snapshot.workspace)) {
@@ -99,15 +142,31 @@ function validateSessionSnapshot(snapshot) {
     invalid('resume.nextAction', 'expected a non-empty string');
   }
 
+  if (snapshot.files !== undefined) {
+    if (!Array.isArray(snapshot.files) || snapshot.files.length > 20) invalid('files', 'maximum 20 text files');
+    const paths = new Set();
+    for (const file of snapshot.files) {
+      if (!isObject(file) || typeof file.content !== 'string' || file.encoding !== 'utf8') {
+        invalid('files', 'only explicitly selected UTF-8 text files are supported');
+      }
+      containedPath(process.cwd(), file.path);
+      if (paths.has(file.path.toLowerCase())) invalid('files', 'duplicate file path');
+      paths.add(file.path.toLowerCase());
+    }
+  }
+  if (Buffer.byteLength(JSON.stringify(snapshot), 'utf8') > MAX_SNAPSHOT_BYTES) {
+    invalid('', 'snapshot exceeds size limit');
+  }
   return snapshot;
 }
 
 const SECRET_KEY_PATTERN =
-  /(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|private[_-]?key|authorization)/i;
+  /(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|private[_-]?key|authorization|cookie|connection[_-]?string|account[_-]?key|secret|(?:^|[_-])(?:sig|signature|token)(?:$|[_-]))/i;
 const INLINE_SECRET_PATTERN =
-  /((?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|private[_-]?key)\s*[:=]\s*)([^\s,;]+)/gi;
-const BEARER_PATTERN = /\bBearer\s+[A-Za-z0-9._~+/=-]+/g;
+  /((?:["']?)(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|accountkey|sig|signature|secret|token)(?:["']?)\s*[:=]\s*)("[^"]*"|'[^']*'|[^\s,;&]+)/gi;
+const BEARER_PATTERN = /\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi;
 const PRIVATE_KEY_PATTERN = /-----BEGIN [A-Z ]*PRIVATE KEY-----/;
+const TOKEN_PATTERN = /\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)\b/g;
 
 function redactValue(value, path, state) {
   if (typeof value === 'string') {
@@ -121,11 +180,24 @@ function redactValue(value, path, state) {
       return '[REDACTED_BEARER_TOKEN]';
     });
 
-    redacted = redacted.replace(INLINE_SECRET_PATTERN, (prefix) => {
+    redacted = redacted.replace(INLINE_SECRET_PATTERN, (match, prefix, secret) => {
+      if (/^\[REDACTED(?::[^\]]+)?\]$/.test(secret)) return match;
       state.redactions.push(path);
       return `${prefix}[REDACTED]`;
     });
-
+    redacted = redacted.replace(TOKEN_PATTERN, () => {
+      state.redactions.push(path);
+      return '[REDACTED]';
+    });
+    redacted = redacted.replace(/\b(https?:\/\/)[^\s/:]+:[^\s/@]+@/gi, (match, scheme) => {
+      state.redactions.push(path);
+      return `${scheme}[REDACTED]@`;
+    });
+    redacted = redacted.replace(/((?:^|\n)\s*(?:cookie|set-cookie)\s*:\s*)[^\r\n]+/gi, (match, prefix) => {
+      if (match === `${prefix}[REDACTED]`) return match;
+      state.redactions.push(path);
+      return `${prefix}[REDACTED]`;
+    });
     return redacted;
   }
 
@@ -138,8 +210,9 @@ function redactValue(value, path, state) {
     for (const [key, child] of Object.entries(value)) {
       const childPath = path ? `${path}.${key}` : key;
       if (SECRET_KEY_PATTERN.test(key) && typeof child === 'string' && child.length > 0) {
-        state.redactions.push(childPath);
-        result[key] = `[REDACTED:${key}]`;
+        const alreadyRedacted = /^\[REDACTED(?::[^\]]+)?\]$/.test(child);
+        if (!alreadyRedacted) state.redactions.push(childPath);
+        result[key] = alreadyRedacted ? child : '[REDACTED]';
       } else {
         result[key] = redactValue(child, childPath, state);
       }
@@ -184,12 +257,7 @@ function createSnapshotRecord(snapshot, options = {}) {
       parentSnapshotId: options.parentSnapshotId || null,
       source: snapshot.source,
       repository: snapshot.workspace.repository || null,
-      includedScopes: options.includedScopes || [
-        'conversation',
-        'tool-history',
-        'task-summary',
-        'workspace-metadata',
-      ],
+      includedScopes: snapshotScopes(snapshot),
       redactions: options.redactions || [],
       contentHash: `sha256:${contentHash(snapshot)}`,
       contentLength: Buffer.byteLength(serialized, 'utf8'),
@@ -205,6 +273,13 @@ function verifySnapshotRecord(record) {
   }
 
   validateSessionSnapshot(record.snapshot);
+  if (record.manifest.schemaVersion !== SNAPSHOT_SCHEMA_VERSION ||
+      !/^snap_[a-z0-9]+_[a-f0-9]+$/.test(record.manifest.snapshotId || '') ||
+      canonicalJson(record.manifest.source) !== canonicalJson(record.snapshot.source) ||
+      canonicalJson(record.manifest.repository) !== canonicalJson(record.snapshot.workspace.repository || null) ||
+      !Array.isArray(record.manifest.redactions)) {
+    throw new Error('Invalid snapshot manifest');
+  }
   const actualHash = `sha256:${contentHash(record.snapshot)}`;
   if (record.manifest.contentHash !== actualHash) {
     throw new Error(`Snapshot integrity check failed for ${record.manifest.snapshotId}`);
@@ -235,7 +310,9 @@ function createCloneRecord(record, targetHost = 'fixture-host') {
     sourceSnapshotId: record.manifest.snapshotId,
     createdAt: new Date().toISOString(),
     targetHost,
-    status: 'ready',
+    status: 'context-imported',
+    restoreMode: 'context_document',
+    readiness: { status: 'needs_adaptation', reason: 'Local tools, workspace and permissions have not been assessed.' },
     safety: {
       importedAsExternalContext: true,
       sourceCredentialsImported: false,
@@ -246,7 +323,17 @@ function createCloneRecord(record, targetHost = 'fixture-host') {
   };
 }
 
+function snapshotScopes(snapshot) {
+  const scopes = ['task-summary', 'workspace-metadata'];
+  if (snapshot.events.some((event) => /user|assistant|message/.test(event.type))) scopes.push('conversation');
+  if (snapshot.events.some((event) => /tool/.test(event.type))) scopes.push('tool-history');
+  if (snapshot.files && snapshot.files.length) scopes.push('selected-text-files');
+  return scopes;
+}
+
 module.exports = {
+  MAX_SNAPSHOT_BYTES,
+  MAX_TEXT_BYTES,
   SNAPSHOT_SCHEMA_VERSION,
   SecretDetectionError,
   canonicalJson,
@@ -255,6 +342,7 @@ module.exports = {
   createSnapshotRecord,
   isSnapshotAccessible,
   prepareSnapshot,
+  snapshotScopes,
   validateSessionSnapshot,
   verifySnapshotRecord,
 };

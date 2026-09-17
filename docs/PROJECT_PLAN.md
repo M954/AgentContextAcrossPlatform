@@ -1,12 +1,12 @@
 # AgentContextAcrossPlatform - Remote Session Clone Project Plan
 
-> Status: Active design direction; a dependency-free loopback prototype now implements the publish, inspect, verify, and clone boundaries with synthetic fixtures.
+> Status: Incremental implementation. A local MCP/CLI now supports reviewed OneDrive work/school and SharePoint bundle transport plus a loopback test provider. Native session capture/restoration and recipient readiness remain incomplete.
 > This plan defines the new primary goal: publish a resumable agent-session snapshot to a remote location and let another user clone it into their local agent.
 >
 > The previous knowledge-handoff plan is preserved in [KNOWLEDGE_HANDOFF_PLAN.md](KNOWLEDGE_HANDOFF_PLAN.md).
 > The [code plan](CODE_PLAN.md) defines implementation modules, contracts, milestones, and tests. It separates restored context from next-step execution readiness; a successful import does not guarantee an equivalent environment.
 
-The prototype is for local testing only. It intentionally does not provide production identity, team authorization, remote encryption, or native agent-host integration.
+The loopback provider is for synthetic local testing only and has no authentication. The OneDrive provider uses delegated Microsoft authentication and provider-managed file permissions. Its protocol is exercised with synthetic Graph fixtures; tenant-specific consent, live two-user sharing and native host integration remain deployment gates. See the README for the implemented CLI and supported limits.
 
 ## 1. Product Definition
 
@@ -517,3 +517,23 @@ Start local snapshot service
 MCP registration does not itself grant access to the complete Copilot transcript. The first adapter therefore accepts a normalized snapshot input and applies local validation and redaction. A future Copilot host adapter must obtain an approved session export through a supported interface rather than scraping arbitrary files or sending the entire history by default.
 
 The first Copilot-facing clone is file-backed under the configured local clone directory. It is not native session restoration until a host adapter can create a Copilot session with external provenance.
+
+## 16. OneDrive/SharePoint File Handoff Implementation
+
+The active MVP transport is now one reviewed file bundle uploaded to OneDrive or SharePoint, not a mandatory custom hosted session service. A future Web App may coordinate other providers, but is unnecessary for Microsoft-hosted file sharing.
+
+The bundle is a bounded UTF-8 JSON envelope containing a normalized snapshot and up to 20 explicitly selected text files. Binary/archive attachments remain unsupported. Files are redacted locally before review; receiving agents never infer that a successful import means equivalent tools, identity, workspace or data access.
+
+Implementation boundaries:
+
+- `bundle.js` validates packages, selected file paths, sizes and locally applied redactions.
+- `graph-provider.js` creates a conflict-failing upload session, uploads bytes without forwarding Graph tokens to transfer URLs, creates a `users`/`view` link, and grants the selected recipients read access. The updated Microsoft-generated link is returned only after successful grant completion.
+- `graph-auth.js` uses explicit delegated work/school sign-in and OS-encrypted MSAL state. No app-only identity, plaintext-cache fallback or model-visible token is supported.
+- `reviews.js` and `workflow.js` bind human approval to the exact bundle, account, configuration, destination, recipients and action. Reviews expire. A boolean supplied by the model cannot authorize an operation.
+- `mcp-server.js` uses the official MCP SDK and human elicitation. Unsupported clients must use the interactive CLI; the integration does not fake a human approval.
+- Import rechecks live file access/version and writes a separate context document and quarantined supporting files. It returns `context_document` and `needs_adaptation`, not a ready native session.
+- `plugin.json`, `mcp.json` and the packaged skill support Copilot plugin registration. Node and a one-time pinned dependency installation are still prerequisites.
+
+SharePoint file permissions are not automatically exclusive: files may inherit access from their destination. The review calls out that boundary; the tool does not alter existing parent permissions. Revoking a generated link neither revokes independent access nor recalls downloaded copies. Digests detect mismatched content but are not an author signature or immutable-storage guarantee.
+
+Use a restricted test library and an approved Entra app before a live exercise. Acceptance must include A publishing, B downloading with B's identity, an unrelated C being denied, changed/revoked content refusing cached import, and honest reporting of the context-document fallback. Current synthetic contract tests are not a substitute for that tenant exercise.

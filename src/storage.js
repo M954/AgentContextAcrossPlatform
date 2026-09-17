@@ -2,6 +2,8 @@
 
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const { privateDirectory, readBoundedFile, writePrivateJson } = require('./local-files');
+const { MAX_BUNDLE_BYTES } = require('./bundle');
 
 function isSafeSnapshotId(snapshotId) {
   return /^snap_[a-z0-9]+_[a-f0-9]+$/.test(snapshotId);
@@ -14,7 +16,7 @@ class FileSnapshotStore {
   }
 
   async init() {
-    await fs.mkdir(this.snapshotsDir, { recursive: true });
+    await privateDirectory(this.snapshotsDir);
   }
 
   filePath(snapshotId) {
@@ -27,28 +29,14 @@ class FileSnapshotStore {
   async save(record) {
     await this.init();
     const destination = this.filePath(record.manifest.snapshotId);
-    try {
-      await fs.access(destination);
-      throw new Error(`Snapshot already exists: ${record.manifest.snapshotId}`);
-    } catch (error) {
-      if (error.code !== 'ENOENT') {
-        throw error;
-      }
-    }
-
-    const temporary = `${destination}.${process.pid}.${Date.now()}.tmp`;
-    await fs.writeFile(temporary, JSON.stringify(record, null, 2), {
-      encoding: 'utf8',
-      mode: 0o600,
-    });
-    await fs.rename(temporary, destination);
+    await writePrivateJson(destination, record);
     return record;
   }
 
   async get(snapshotId) {
     const file = this.filePath(snapshotId);
     try {
-      return JSON.parse(await fs.readFile(file, 'utf8'));
+      return JSON.parse((await readBoundedFile(file, MAX_BUNDLE_BYTES * 2)).toString('utf8'));
     } catch (error) {
       if (error.code === 'ENOENT') {
         return null;
@@ -65,12 +53,7 @@ class FileSnapshotStore {
 
     record.manifest.revokedAt = new Date().toISOString();
     const destination = this.filePath(snapshotId);
-    const temporary = `${destination}.${process.pid}.${Date.now()}.tmp`;
-    await fs.writeFile(temporary, JSON.stringify(record, null, 2), {
-      encoding: 'utf8',
-      mode: 0o600,
-    });
-    await fs.rename(temporary, destination);
+    await writePrivateJson(destination, record, { replace: true });
     return record;
   }
 }

@@ -4,6 +4,8 @@
 > Based on the [active project plan](PROJECT_PLAN.md), with an important refinement: restoring context and being able to continue execution are separate outcomes. A successful import must never imply that the recipient's environment reproduces the source environment.
 > The earlier knowledge-mining direction remains in [KNOWLEDGE_HANDOFF_PLAN.md](KNOWLEDGE_HANDOFF_PLAN.md) and is not part of this implementation's first milestone.
 
+Implementation update: the current JavaScript slice adds OneDrive/SharePoint transport, delegated MSAL authentication, content-bound human reviews, official MCP tools and plugin packaging. Import is explicitly `context_document` with unresolved readiness. The broader modules and milestones below remain the target; native host integration, live tenant acceptance and the readiness matrix are not claimed complete. See the README for current setup and commands.
+
 ## 1. Implementation Target
 
 Build one end-to-end workflow:

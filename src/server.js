@@ -11,10 +11,11 @@ const {
   verifySnapshotRecord,
 } = require('./snapshot');
 const { FileSnapshotStore } = require('./storage');
+const { MAX_BUNDLE_BYTES, verifyBundle } = require('./bundle');
 
 const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PORT = 8787;
-const MAX_BODY_BYTES = 2 * 1024 * 1024;
+const MAX_BODY_BYTES = MAX_BUNDLE_BYTES;
 
 class HttpError extends Error {
   constructor(statusCode, message) {
@@ -74,11 +75,9 @@ function assertLoopback(host) {
   }
 }
 
-function getLinkBase(request, publicBaseUrl) {
-  if (publicBaseUrl) {
-    return publicBaseUrl.replace(/\/$/, '');
-  }
-  return `http://${request.headers.host || `${DEFAULT_HOST}:${DEFAULT_PORT}`}`;
+function getLinkBase(request) {
+  const address = request.socket.localAddress;
+  return `http://${address.includes(':') ? `[${address}]` : address}:${request.socket.localPort}`;
 }
 
 function getSnapshotRoute(pathname) {
@@ -91,12 +90,20 @@ function getSnapshotRoute(pathname) {
 
 function createServer(options = {}) {
   const dataDir = options.dataDir || path.join(process.cwd(), '.data');
-  const publicBaseUrl = options.publicBaseUrl || null;
   const store = new FileSnapshotStore(dataDir);
 
   const server = http.createServer(async (request, response) => {
     try {
-      const requestUrl = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
+      const listenerOrigin = getLinkBase(request);
+      const host = request.headers.host;
+      if (![new URL(listenerOrigin).host, `localhost:${request.socket.localPort}`].includes(host)) {
+        throw new HttpError(403, 'Host is not allowed');
+      }
+      const origin = `http://${host}`;
+      if (request.headers.origin && request.headers.origin !== origin) {
+        throw new HttpError(403, 'Browser origin is not allowed');
+      }
+      const requestUrl = new URL(request.url, origin);
 
       if (request.method === 'GET' && requestUrl.pathname === '/healthz') {
         sendJson(response, 200, { status: 'ok', service: 'agent-context-session-service' });
@@ -104,7 +111,18 @@ function createServer(options = {}) {
       }
 
       if (request.method === 'POST' && requestUrl.pathname === '/v1/snapshots') {
+        if (!request.headers['content-type']?.startsWith('application/json')) {
+          throw new HttpError(415, 'Expected application/json');
+        }
         const body = await readJson(request);
+        if (body.bundle) {
+          const bundle = verifyBundle(body.bundle);
+          await store.save(bundle.record);
+          sendJson(response, 201, { snapshotId: bundle.record.manifest.snapshotId,
+            link: `${origin}/v1/snapshots/${bundle.record.manifest.snapshotId}`,
+            manifest: bundle.record.manifest });
+          return;
+        }
         const rawSnapshot = body.snapshot || body;
         const prepared = prepareSnapshot(rawSnapshot);
         const access = body.access || { mode: 'local', expiresAt: null };
@@ -125,7 +143,7 @@ function createServer(options = {}) {
 
         sendJson(response, 201, {
           snapshotId: record.manifest.snapshotId,
-          link: `${getLinkBase(request, publicBaseUrl)}/v1/snapshots/${record.manifest.snapshotId}`,
+          link: `${origin}/v1/snapshots/${record.manifest.snapshotId}`,
           manifest: record.manifest,
         });
         return;
@@ -167,7 +185,7 @@ function createServer(options = {}) {
             ? 422
             : 500;
       sendJson(response, statusCode, {
-        error: error.message || 'Request failed',
+        error: statusCode === 500 ? 'Local snapshot request failed' : error.message,
         type: error.name || 'Error',
       });
     }
@@ -189,7 +207,7 @@ async function startServer(options = {}) {
   });
 
   const address = app.server.address();
-  const url = `http://${host}:${address.port}`;
+  const url = `http://${host.includes(':') ? `[${host}]` : host}:${address.port}`;
   return { ...app, host, port: address.port, url };
 }
 

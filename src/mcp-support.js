@@ -1,5 +1,7 @@
 'use strict';
 
+const { snapshotScopes } = require('./snapshot');
+
 function summarizeSnapshot(snapshot, redactions = []) {
   return {
     sourceHost: snapshot.source.host,
@@ -8,8 +10,12 @@ function summarizeSnapshot(snapshot, redactions = []) {
     eventCount: snapshot.events.length,
     repository: snapshot.workspace.repository || null,
     branch: snapshot.workspace.branch || null,
-    includedScopes: ['conversation', 'tool-history', 'task-summary', 'workspace-metadata'],
+    includedScopes: snapshotScopes(snapshot),
     redactionCount: redactions.length,
+    files: (snapshot.files || []).map((file) => file.path),
+    omissions: snapshot.omitted || [],
+    restoreMode: 'context_document',
+    readiness: 'needs_adaptation',
   };
 }
 

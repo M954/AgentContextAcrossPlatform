@@ -1,0 +1,13 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "agent-context": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "-e",
+        "require(require('node:path').join(process.env.PLUGIN_ROOT, 'src', 'mcp-server.js')).main().catch(()=>{process.stderr.write('AgentContext setup failed. Run npm ci in the plugin root and check local configuration.\\n');process.exitCode=1;})"
+      ]
+    }
+  }
+}

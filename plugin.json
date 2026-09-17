@@ -1,0 +1,8 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "agent-context",
+  "version": "0.2.0",
+  "description": "Review and share session bundles through OneDrive/SharePoint, then import context without replaying tools.",
+  "repository": "https://github.com/M954/AgentContextAcrossPlatform",
+  "keywords": ["copilot", "session-handoff", "onedrive", "sharepoint", "mcp"]
+}

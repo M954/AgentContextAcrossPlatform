@@ -1,3 +1,7 @@
 node_modules/
 .data/
 *.log
+.env
+.env.*
+.agent-context/
+*.agent-session.json

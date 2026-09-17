@@ -1,8 +1,8 @@
 {
   "name": "agent-context-across-platform",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Local prototype for publishing and cloning agent session snapshots.",
+  "description": "Reviewed session bundles shared through OneDrive and SharePoint.",
   "type": "commonjs",
   "engines": {
     "node": ">=20"
@@ -14,6 +14,14 @@
     "inspect": "node src/cli.js inspect",
     "resume": "node src/cli.js resume",
     "clone": "node src/cli.js clone",
+    "login": "node src/cli.js login",
+    "configure": "node src/cli.js configure",
     "test": "node --test"
+  },
+  "dependencies": {
+    "@azure/msal-node": "6.0.1",
+    "@azure/msal-node-extensions": "5.5.1",
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "zod": "4.6.1"
   }
 }

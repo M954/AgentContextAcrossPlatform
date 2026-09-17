@@ -12,11 +12,16 @@ const {
   prepareSnapshot,
   verifySnapshotRecord,
 } = require('../src/snapshot');
+const { LocalProvider } = require('../src/local-provider');
+const { createBundle } = require('../src/bundle');
 
 test('publishes, verifies, inspects, and clones a session snapshot', async (t) => {
   const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-context-service-'));
   const service = await startServer({ port: 0, dataDir });
-  t.after(() => service.server.close());
+  t.after(async () => {
+    await new Promise((resolve) => service.server.close(resolve));
+    await fs.rm(dataDir, { recursive: true, force: true });
+  });
 
   const fixture = JSON.parse(
     await fs.readFile(path.join(__dirname, '..', 'fixtures', 'sample-session.json'), 'utf8'),
@@ -67,4 +72,18 @@ test('blocks high-confidence secrets before publication', () => {
   };
 
   assert.throws(() => prepareSnapshot(snapshot), /Publication blocked/);
+});
+
+test('localhost service links preserve the validated request origin', async (t) => {
+  const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-context-localhost-'));
+  const service = await startServer({ host: 'localhost', port: 0, dataDir });
+  t.after(async () => {
+    await new Promise((resolve) => service.server.close(resolve));
+    await fs.rm(dataDir, { recursive: true, force: true });
+  });
+  const provider = new LocalProvider(service.url);
+  const fixture = require('../fixtures/sample-session.json');
+  const published = await provider.publish(createBundle(fixture));
+  assert.equal(new URL(published.link).origin, service.url);
+  assert.ok((await provider.inspect(published.link)).bundle);
 });
