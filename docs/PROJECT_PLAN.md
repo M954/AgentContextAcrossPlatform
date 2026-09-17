@@ -4,6 +4,7 @@
 > This plan defines the new primary goal: publish a resumable agent-session snapshot to a remote location and let another user clone it into their local agent.
 >
 > The previous knowledge-handoff plan is preserved in [KNOWLEDGE_HANDOFF_PLAN.md](KNOWLEDGE_HANDOFF_PLAN.md).
+> The [code plan](CODE_PLAN.md) defines implementation modules, contracts, milestones, and tests. It separates restored context from next-step execution readiness; a successful import does not guarantee an equivalent environment.
 
 The prototype is for local testing only. It intentionally does not provide production identity, team authorization, remote encryption, or native agent-host integration.
 

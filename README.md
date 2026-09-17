@@ -114,6 +114,7 @@ The service binds to `127.0.0.1`, stores snapshots under `.data\`, rejects non-l
 ## Documentation
 
 - [Active remote session clone project plan](docs/PROJECT_PLAN.md)
+- [Code plan: implementation modules, readiness checks, and tests](docs/CODE_PLAN.md)
 - [Preserved previous knowledge-handoff plan](docs/KNOWLEDGE_HANDOFF_PLAN.md)
 
 The previous project direction focused on extracting reusable knowledge from multiple sessions. It has been renamed and preserved so that work is not lost; knowledge handoff can later be built on top of remote session snapshots.
