@@ -80,7 +80,7 @@ function validateSessionSnapshot(snapshot) {
     invalid('', 'expected an object');
   }
   const allowed = new Set(['schemaVersion', 'source', 'task', 'events', 'workspace', 'resume',
-    'requiredCapabilities', 'omitted', 'files']);
+    'requiredCapabilities', 'omitted', 'files', 'attachments']);
   if (Object.keys(snapshot).some((key) => !allowed.has(key))) {
     invalid('', 'unsupported top-level field; record unsupported attachments or state as omissions');
   }
@@ -154,6 +154,18 @@ function validateSessionSnapshot(snapshot) {
       paths.add(file.path.toLowerCase());
     }
   }
+  if (snapshot.attachments !== undefined) {
+    if (!Array.isArray(snapshot.attachments) || snapshot.attachments.length + (snapshot.files?.length || 0) > 20) {
+      invalid('attachments', 'maximum 20 selected text files/attachments');
+    }
+    for (const attachment of snapshot.attachments) {
+      if (!isObject(attachment) || typeof attachment.text !== 'string' ||
+          Object.keys(attachment).some((key) => !['text', 'name'].includes(key)) ||
+          (attachment.name !== undefined && typeof attachment.name !== 'string')) {
+        invalid('attachments', 'only selected attachment text is supported; record binary data as omitted');
+      }
+    }
+  }
   if (Buffer.byteLength(JSON.stringify(snapshot), 'utf8') > MAX_SNAPSHOT_BYTES) {
     invalid('', 'snapshot exceeds size limit');
   }
@@ -163,7 +175,7 @@ function validateSessionSnapshot(snapshot) {
 const SECRET_KEY_PATTERN =
   /(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|private[_-]?key|authorization|cookie|connection[_-]?string|account[_-]?key|secret|(?:^|[_-])(?:sig|signature|token)(?:$|[_-]))/i;
 const INLINE_SECRET_PATTERN =
-  /((?:["']?)(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|accountkey|sig|signature|secret|token)(?:["']?)\s*[:=]\s*)("[^"]*"|'[^']*'|[^\s,;&]+)/gi;
+  /(["']?(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|private[_-]?key|accountkey|sig|signature|secret|token)["']?\s*[:=]\s*)(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|([^\s,;&]+))/gi;
 const BEARER_PATTERN = /\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi;
 const PRIVATE_KEY_PATTERN = /-----BEGIN [A-Z ]*PRIVATE KEY-----/;
 const TOKEN_PATTERN = /\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)\b/g;
@@ -180,10 +192,17 @@ function redactValue(value, path, state) {
       return '[REDACTED_BEARER_TOKEN]';
     });
 
-    redacted = redacted.replace(INLINE_SECRET_PATTERN, (match, prefix, secret) => {
+    redacted = redacted.replace(INLINE_SECRET_PATTERN, (match, prefix, doubleQuoted, singleQuoted, bare) => {
+      // Unterminated quoted values must not leave a secret suffix in the text.
+      if (bare !== undefined && (bare.startsWith('"') || bare.startsWith("'"))) {
+        state.blocked.push(path);
+        return `${prefix}[REDACTED]`;
+      }
+      const secret = doubleQuoted ?? singleQuoted ?? bare;
       if (/^\[REDACTED(?::[^\]]+)?\]$/.test(secret)) return match;
       state.redactions.push(path);
-      return `${prefix}[REDACTED]`;
+      const quote = doubleQuoted !== undefined ? '"' : singleQuoted !== undefined ? "'" : '';
+      return `${prefix}${quote}[REDACTED]${quote}`;
     });
     redacted = redacted.replace(TOKEN_PATTERN, () => {
       state.redactions.push(path);
@@ -308,12 +327,15 @@ function createCloneRecord(record, targetHost = 'fixture-host') {
   return {
     cloneId: `clone_${Date.now().toString(36)}_${crypto.randomBytes(6).toString('hex')}`,
     sourceSnapshotId: record.manifest.snapshotId,
+    sourceContentHash: record.manifest.contentHash,
     createdAt: new Date().toISOString(),
     targetHost,
-    status: 'context-imported',
+    status: 'context_imported',
     restoreMode: 'context_document',
+    executionReadiness: 'not_assessed',
     readiness: { status: 'needs_adaptation', reason: 'Local tools, workspace and permissions have not been assessed.' },
     safety: {
+      nativeSessionCreated: false,
       importedAsExternalContext: true,
       sourceCredentialsImported: false,
       toolsReplayed: false,
@@ -328,6 +350,7 @@ function snapshotScopes(snapshot) {
   if (snapshot.events.some((event) => /user|assistant|message/.test(event.type))) scopes.push('conversation');
   if (snapshot.events.some((event) => /tool/.test(event.type))) scopes.push('tool-history');
   if (snapshot.files && snapshot.files.length) scopes.push('selected-text-files');
+  if (snapshot.attachments && snapshot.attachments.length) scopes.push('selected-text-attachments');
   return scopes;
 }
 

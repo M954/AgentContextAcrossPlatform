@@ -50,7 +50,7 @@ test('complete A -> reviewed bundle -> OneDrive -> B -> isolated files/context, 
   assert.equal(inspected.restoreMode, 'context_document');
   assert.equal(inspected.readiness, 'needs_adaptation');
   const imported = await recipient.complete(inspected.reviewId, 'import', async () => true);
-  assert.equal(imported.status, 'context-imported');
+  assert.equal(imported.status, 'context_imported');
   assert.equal(imported.safety.toolsReplayed, false);
   assert.equal(imported.safety.repositoryModified, false);
   assert.equal(await fs.readFile(path.join(path.dirname(imported.contextPath), 'files', 'queries', 'next.sql'), 'utf8'), 'select 1;');

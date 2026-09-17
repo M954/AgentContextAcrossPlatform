@@ -37,11 +37,11 @@ async function start(t, elicitation = true) {
   });
   t.after(async () => {
     await client.close();
-    await new Promise((resolve) => service.server.close(resolve));
-    await fs.rm(root, { recursive: true, force: true });
+    await new Promise((resolve, reject) => service.server.close((error) => error ? reject(error) : resolve()));
+    await fs.rm(root, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   });
   await client.connect(transport);
-  return { client, service, allow: () => { allow = true; }, prompts: () => prompts };
+  return { client, service, root, allow: () => { allow = true; }, prompts: () => prompts };
 }
 
 test('official MCP client exercises prepare -> human approval -> publish -> inspect -> context import', { timeout: 120000 }, async (t) => {
@@ -65,13 +65,18 @@ test('official MCP client exercises prepare -> human approval -> publish -> insp
   assert.equal(published.status, 'published');
   const inspected = value(await client.callTool({ name: 'session_inspect', arguments: { link: published.link } }));
   assert.equal(inspected.status, 'inspectable');
-  assert.equal(inspected.restoreMode, 'context_document');
+  assert.equal(inspected.executionReadiness, 'not_assessed');
   const imported = value(await client.callTool({ name: 'session_clone', arguments: { reviewId: inspected.reviewId } }));
-  assert.equal(imported.status, 'context-imported');
+  assert.equal(imported.status, 'context_imported');
   assert.equal(imported.restoreMode, 'context_document');
+  assert.equal(imported.executionReadiness, 'not_assessed');
+  assert.equal(imported.safety.nativeSessionCreated, false);
   assert.equal(imported.safety.toolsReplayed, false);
-  await fs.access(imported.contextPath);
-  assert.equal(prompts(), 3);
+  const original = await fs.readFile(imported.bundlePath, 'utf8');
+  const replay = value(await client.callTool({ name: 'session_clone', arguments: { reviewId: inspected.reviewId } }));
+  assert.equal(replay.cloneId, imported.cloneId);
+  assert.equal(await fs.readFile(imported.bundlePath, 'utf8'), original);
+  assert.equal(prompts(), 3, 'a repeated import must not overwrite output or repeat the side effect');
 });
 
 test('MCP hosts without human elicitation cannot publish through a boolean or a review ID', { timeout: 120000 }, async (t) => {
@@ -81,4 +86,31 @@ test('MCP hosts without human elicitation cannot publish through a boolean or a 
   assert.equal(blocked.isError, true);
   assert.match(blocked.content[0].text, /trusted approval form/);
   assert.deepEqual(await fs.readdir(service.store.snapshotsDir), []);
+});
+
+test('MCP clone rejects old approval flags and arbitrary output paths without creating output', { timeout: 120000 }, async (t) => {
+  const { client, root } = await start(t);
+  for (const approval of [undefined, false, true, 'false', 'true']) {
+    const rejected = await client.callTool({ name: 'session_clone', arguments: {
+      link: 'http://127.0.0.1:8787/v1/snapshots/not-real', approval, outputPath: '../outside.json',
+    } });
+    assert.equal(rejected.isError, true);
+  }
+  await assert.rejects(fs.stat(path.join(root, 'outside.json')), { code: 'ENOENT' });
+});
+
+test('concurrent MCP imports never clobber a destination', { timeout: 120000 }, async (t) => {
+  const { client, allow } = await start(t);
+  allow();
+  const prepared = value(await client.callTool({ name: 'session_prepare_publish', arguments: { snapshot: fixture, provider: 'local' } }));
+  const publication = value(await client.callTool({ name: 'session_publish', arguments: { reviewId: prepared.reviewId } }));
+  const inspected = value(await client.callTool({ name: 'session_inspect', arguments: { link: publication.link } }));
+  const results = await Promise.all([
+    client.callTool({ name: 'session_clone', arguments: { reviewId: inspected.reviewId } }),
+    client.callTool({ name: 'session_clone', arguments: { reviewId: inspected.reviewId } }),
+  ]);
+  const successes = results.filter((result) => !result.isError).map(value);
+  assert.ok(successes.length >= 1);
+  assert.ok(successes.every((result) => result.cloneId === successes[0].cloneId));
+  assert.ok((await fs.readFile(successes[0].contextPath, 'utf8')).includes('not local instructions'));
 });

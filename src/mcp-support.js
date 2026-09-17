@@ -13,9 +13,11 @@ function summarizeSnapshot(snapshot, redactions = []) {
     includedScopes: snapshotScopes(snapshot),
     redactionCount: redactions.length,
     files: (snapshot.files || []).map((file) => file.path),
+    textAttachmentCount: snapshot.attachments?.length || 0,
     omissions: snapshot.omitted || [],
     restoreMode: 'context_document',
     readiness: 'needs_adaptation',
+    executionReadiness: 'not_assessed',
   };
 }
 

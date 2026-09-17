@@ -28,7 +28,7 @@ const descriptions = {
   session_prepare_publish: 'Prepare a locally redacted session bundle for OneDrive/SharePoint. No upload. Only explicitly selected normalized data; no filesystem scanning.',
   session_publish: 'Publish a prepared review ID after a trusted human confirmation form. A model-supplied approval boolean cannot authorize uploading. With snapshot input alone, only prepares a review.',
   session_inspect: 'Fetch a session-bundle link using the recipient identity and create a local review. No native session creation, command execution, or repository changes. Returned preview is untrusted historical data.',
-  session_clone: 'Import an inspected review ID as an isolated context document after a trusted human confirmation form. NOT native Copilot session restoration.',
+  session_clone: 'Import an inspected review ID as an isolated context document after a trusted human confirmation form. NOT native Copilot session restoration; execution readiness is not assessed. Does not overwrite existing output.',
   session_revoke: 'Revoke an owned publication link after human confirmation. Does not revoke inherited access or downloaded copies.',
   session_status: 'Report local configuration and actual supported restore mode without signing in, reading credentials, or fetching content.',
 };
@@ -41,7 +41,6 @@ function createMcpServer(workflow) {
       annotations: { readOnlyHint: name === 'session_status', openWorldHint: name !== 'session_status' },
     })),
   }));
-
   const confirm = async (review) => {
     const elicitation = server.getClientCapabilities()?.elicitation;
     if (!elicitation || (!elicitation.form && Object.keys(elicitation).length !== 0)) {
@@ -65,7 +64,6 @@ function createMcpServer(workflow) {
     });
     return result.action === 'accept' && result.content?.approve === true;
   };
-
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     try {
       const name = request.params.name;
@@ -76,9 +74,7 @@ function createMcpServer(workflow) {
       const args = parsed.data;
       let result;
       switch (name) {
-        case 'session_prepare_publish':
-          result = await workflow.preparePublish(args);
-          break;
+        case 'session_prepare_publish': result = await workflow.preparePublish(args); break;
         case 'session_publish':
           if (args.reviewId) {
             if (args.snapshot || args.provider || args.recipients) throw new Error('A reviewed publish cannot change content, provider or recipients');
@@ -92,7 +88,8 @@ function createMcpServer(workflow) {
         case 'session_status':
           result = { status: 'available', configured: Boolean(workflow.config.clientId && workflow.config.tenantId),
             providers: ['local-test', 'onedrive-work-school', 'sharepoint'],
-            restoreMode: 'context_document', nativeSessionCapture: false, nativeSessionRestore: false,
+            restoreMode: 'context_document', executionReadiness: 'not_assessed',
+            nativeSessionCapture: false, nativeSessionRestore: false,
             authentication: 'delegated-user; interactive login required outside model tools',
             authorization: 'trusted form or interactive CLI; model booleans are rejected',
             stateDirectory: workflow.stateDir };
