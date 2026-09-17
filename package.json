@@ -9,6 +9,7 @@
   },
   "scripts": {
     "start": "node src/cli.js serve",
+    "mcp": "node src/mcp-server.js",
     "share": "node src/cli.js share",
     "inspect": "node src/cli.js inspect",
     "resume": "node src/cli.js resume",

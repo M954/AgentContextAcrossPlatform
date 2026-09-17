@@ -47,6 +47,34 @@ This project handles conversation history, tool activity, repository metadata, a
 
 The initial prototype is loopback-only and stores snapshots locally for testing. It has no production authentication or remote encryption and must not be used to share real secrets or sensitive customer data.
 
+## Copilot CLI Integration
+
+The project can be exposed inside Copilot CLI as a local STDIO MCP server. Start the local snapshot service first:
+
+```powershell
+npm start
+```
+
+Then register the MCP server from the repository checkout:
+
+```powershell
+copilot mcp add agent-context -- node "<absolute-path-to-repository>\src\mcp-server.js"
+```
+
+Alternatively, use `/mcp add` inside Copilot CLI and choose **Local/STDIO** with the same command. The server exposes `session_publish`, `session_inspect`, `session_clone`, `session_revoke`, and `session_status`.
+
+The project skill is available at `.github/skills/session-handoff/SKILL.md`. Copilot CLI loads it as a project skill after the repository is trusted. Use `/skills reload` after adding it to an already-running CLI session.
+
+Copilot CLI still requires permission for MCP tools. Prefer narrowly scoped permissions, for example:
+
+```powershell
+copilot --allow-tool "agent-context(session_publish)" -p "Prepare a session review and do not publish it."
+```
+
+Use separate approvals for `agent-context(session_inspect)` and `agent-context(session_clone)`. Do not use `--allow-all` for this integration; publication and cloning must remain explicit user decisions.
+
+The current MCP integration accepts a normalized snapshot supplied by the host or model; it does not yet read the live Copilot transcript automatically. Native capture is the next host-adapter task. The current clone operation is file-backed and must not be described as native session resumption.
+
 ## Proposed MCP Operations
 
 Host-specific command syntax may differ, but the first MCP surface should provide equivalent operations:

@@ -495,3 +495,24 @@ The recommended package is a host extension plus a local MCP/bridge process. The
 ### No-Install Fallback
 
 A user without a compatible host adapter may be able to view or download a snapshot through the web link, but cannot get true native session resumption. The fallback must be described as a transcript or summary handoff, not as a cloned session.
+
+## 15. Copilot CLI Integration
+
+Copilot CLI can load this project through two complementary mechanisms:
+
+1. A local STDIO MCP server exposes the session operations as model-callable tools.
+2. A project skill at `.github/skills/session-handoff/SKILL.md` enforces privacy review, explicit approval, and no automatic replay.
+
+The local setup is:
+
+```text
+Start local snapshot service
+    -> register src/mcp-server.js with `copilot mcp add`
+    -> trust the repository
+    -> reload `/skills`
+    -> ask Copilot to share or resume a session
+```
+
+MCP registration does not itself grant access to the complete Copilot transcript. The first adapter therefore accepts a normalized snapshot input and applies local validation and redaction. A future Copilot host adapter must obtain an approved session export through a supported interface rather than scraping arbitrary files or sending the entire history by default.
+
+The first Copilot-facing clone is file-backed under the configured local clone directory. It is not native session restoration until a host adapter can create a Copilot session with external provenance.

@@ -3,6 +3,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 
+const { requestJson } = require('./client');
 const { startServer } = require('./server');
 const {
   createCloneRecord,
@@ -43,22 +44,6 @@ function required(options, key) {
 
 async function readJsonFile(filePath) {
   return JSON.parse(await fs.readFile(path.resolve(filePath), 'utf8'));
-}
-
-async function requestJson(url, options = {}) {
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      Accept: 'application/json',
-      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-      ...(options.headers || {}),
-    },
-  });
-  const body = await response.json();
-  if (!response.ok) {
-    throw new Error(`${response.status} ${body.error || 'Request failed'}`);
-  }
-  return body;
 }
 
 function summarizeSnapshot(snapshot, redactions = []) {
