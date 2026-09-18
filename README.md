@@ -29,11 +29,15 @@ and propose the next local step before executing anything.
 
 ### Publisher: one install/register command
 
-With Copilot CLI and Node/npm installed, run:
+With Copilot CLI and Node/npm installed, run this in Windows PowerShell:
 
 ```powershell
-copilot mcp add agent-context -- npx --yes --package "git+https://github.com/M954/AgentContextAcrossPlatform.git#main" -- agent-context-mcp
+copilot.exe mcp add agent-context -- npx --yes --package "git+https://github.com/M954/AgentContextAcrossPlatform.git#main" -- agent-context-mcp
 ```
+
+Use the native `copilot.exe` on Windows: a `copilot.ps1` launcher can consume the first `--`, causing `unexpected argument '--yes'`. If using that PowerShell launcher, write `copilot mcp add agent-context -- -- npx ...` instead. On macOS/Linux, use the native `copilot` command with one `--` before `npx`.
+
+If `agent-context` is already registered, update it with `/mcp edit agent-context` inside Copilot. To deliberately replace it, preserve any custom settings, run `copilot.exe mcp remove agent-context`, then rerun the add command. `mcp add` does not overwrite an existing entry.
 
 `npx` downloads the package and its dependencies on first launch; no manual clone or `npm ci` is needed on this route. A shell and an interactive `/mcp add` form can register the same command. For a managed rollout, replace the development `main` ref with a reviewed commit/tag. Normal repository/network access is required.
 
@@ -187,7 +191,7 @@ The recommended one-command MCP registration is above. The repository also inclu
 For a checkout with dependencies installed:
 
 ```powershell
-copilot mcp add agent-context -- node "<checkout>\src\mcp-server.js"
+copilot.exe mcp add agent-context -- node "<checkout>\src\mcp-server.js"
 ```
 
 Or install the packaged plugin inside Copilot:

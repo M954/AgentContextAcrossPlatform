@@ -59,18 +59,22 @@ Consumer Microsoft accounts are not supported by the current specific-people lin
 
 ### Installation choices
 
-The recommended publisher path is one command, without a checkout or manual dependency installation:
+The recommended publisher path is one command, without a checkout or manual dependency installation. In Windows PowerShell:
 
 ```powershell
-copilot mcp add agent-context -- npx --yes --package "git+https://github.com/M954/AgentContextAcrossPlatform.git#main" -- agent-context-mcp
+copilot.exe mcp add agent-context -- npx --yes --package "git+https://github.com/M954/AgentContextAcrossPlatform.git#main" -- agent-context-mcp
 ```
+
+The native executable preserves the argument separator. A `copilot.ps1` launcher may consume the first `--` and report `unexpected argument '--yes'`; with that launcher, use `copilot mcp add agent-context -- -- npx ...`. Native macOS/Linux launchers use `copilot` with the original single separator.
+
+An existing server entry is not overwritten. Use `/mcp edit agent-context` to update it, or deliberately remove only that entry with `copilot.exe mcp remove agent-context` before adding it again. Preserve custom settings when replacing an existing registration.
 
 For a managed deployment use a reviewed commit/tag instead of the development branch. This registers MCP tools, not the optional skill. `npx --yes` authorizes dependency download/installation only; it is not a handoff approval. Node/npm, Copilot CLI, repository access and the approved Microsoft app profile remain publisher prerequisites.
 
 For a checkout, run `npm ci` in the repository, then register the MCP process:
 
 ```powershell
-copilot mcp add agent-context -- node "<checkout>\src\mcp-server.js"
+copilot.exe mcp add agent-context -- node "<checkout>\src\mcp-server.js"
 ```
 
 Alternatively, install the plugin inside Copilot:
