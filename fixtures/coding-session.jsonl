@@ -1,0 +1,6 @@
+{"type":"session.start","id":"start","timestamp":"2026-01-01T00:00:00Z","data":{"sessionId":"synthetic-coding-session","producer":"copilot-agent"}}
+{"type":"user.message","id":"user-1","timestamp":"2026-01-01T00:00:01Z","data":{"content":"Synthetic demo: implement average(values). Empty input must return 0. Do not change the public API."}}
+{"type":"assistant.message","id":"assistant-1","timestamp":"2026-01-01T00:00:02Z","data":{"content":"The implementation sums values and divides by their count. The empty-input branch still needs a guard. The recipient should inspect their own workspace before editing."}}
+{"type":"tool.execution_start","id":"tool-1","timestamp":"2026-01-01T00:00:03Z","data":{"toolName":"shell","toolCallId":"test-1","arguments":{"command":"npm test"}}}
+{"type":"tool.execution_complete","id":"tool-2","timestamp":"2026-01-01T00:00:04Z","data":{"toolCallId":"test-1","success":false,"result":{"content":"Synthetic historical test result: expected 0 for [], received NaN. No command should be replayed during import."}}}
+{"type":"user.message","id":"user-2","timestamp":"2026-01-01T00:00:05Z","data":{"content":"Share this context. The next developer should add the empty-input guard and a regression test after reviewing the imported context."}}

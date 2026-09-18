@@ -4,9 +4,8 @@ const path = require('node:path');
 const readline = require('node:readline/promises');
 const { parseArgs } = require('node:util');
 const { startServer } = require('./server');
-const { MAX_SNAPSHOT_BYTES } = require('./snapshot');
-const { readBoundedFile } = require('./local-files');
-const { captureFiles } = require('./bundle');
+const { getCopilotCapabilities } = require('./hosts/copilot');
+const { getPiCapabilities } = require('./hosts/pi');
 const { loadConfig, saveConfig, getStateDir } = require('./config');
 const { createGraphAuth } = require('./graph-auth');
 const { HandoffWorkflow } = require('./workflow');
@@ -15,16 +14,20 @@ const HELP = `AgentContext (Node.js 20+)
   configure --client-id <id> --tenant-id <id> --sharepoint-host <tenant.sharepoint.com>
             [--drive-id <id|me>] [--folder-id <id|root>] [--scope <scope>]
   login | logout | status
-  share --input <snapshot.json> --to <recipient> [--to <recipient>]
-        [--file <relative-text-file>] [--provider onedrive|local]
+  share --input <snapshot-or-export> --to <recipient> [--to <recipient>]
+        [--leaf <pi-entry-id>] [--file <relative-text-file>] [--provider onedrive|local]
   share --review <review-id>
   inspect <OneDrive/SharePoint-link> [--expected-digest <sha256>]
+          [--target document|pi|copilot] [--workspace <recipient-directory>]
+  assess --review <review-id> [--requirements-reviewed]
   resume --review <review-id>
+  doctor
   revoke <owned-snapshot-id>
   serve [--port 8787] [--data-dir .data]
 
 Share and resume require interactive confirmation; --approve/--yes are not supported.
-Import produces a context document, not a native agent session.`;
+Default import produces a context document. Native targets/workspaces must be chosen
+when inspecting, then approved as part of the exact import review. No model or historical tool runs.`;
 
 async function confirm(review) {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
@@ -46,6 +49,8 @@ async function main() {
   const { values: options, positionals } = parseArgs({
     args: process.argv.slice(3), allowPositionals: true, options: {
       input: { type: 'string' }, review: { type: 'string' }, provider: { type: 'string' },
+      target: { type: 'string' }, workspace: { type: 'string' }, leaf: { type: 'string' },
+      'requirements-reviewed': { type: 'boolean' },
       to: { type: 'string', multiple: true }, file: { type: 'string', multiple: true },
       'client-id': { type: 'string' }, 'tenant-id': { type: 'string' },
       'sharepoint-host': { type: 'string', multiple: true }, 'download-host': { type: 'string', multiple: true },
@@ -63,6 +68,10 @@ async function main() {
     const close = () => app.server.close(() => process.exit(0));
     process.once('SIGINT', close);
     process.once('SIGTERM', close);
+    return;
+  }
+  if (command === 'doctor') {
+    console.log(JSON.stringify({ copilot: await getCopilotCapabilities(), pi: await getPiCapabilities() }, null, 2));
     return;
   }
   const stateDir = getStateDir();
@@ -85,7 +94,8 @@ async function main() {
   if (command === 'logout') { console.log(JSON.stringify(await auth.logout())); return; }
   if (command === 'status') {
     console.log(JSON.stringify({ configured: Boolean(config.clientId && config.tenantId),
-      stateDirectory: stateDir, restoreMode: 'context_document', nativeSessionRestore: false }));
+      stateDirectory: stateDir, restoreMode: 'context_document',
+      supportedImportTargets: ['document', 'pi', 'copilot'], nativeAvailability: 'use doctor; not checked by status' }));
     return;
   }
   const workflow = new HandoffWorkflow({ config, stateDir, auth,
@@ -93,22 +103,33 @@ async function main() {
   let result;
   if (command === 'share') {
     if (options.review) {
-      if (options.input || options.to || options.file || options.provider) throw new Error('Cannot change a reviewed share; prepare a new draft');
+      if (options.input || options.to || options.file || options.provider || options.leaf || options.target || options.workspace || positionals.length) throw new Error('Cannot change a reviewed share; prepare a new draft');
       result = await workflow.complete(options.review, 'publish', confirm);
     } else {
       if (!options.input) throw new Error(HELP);
-      const input = JSON.parse((await readBoundedFile(options.input, MAX_SNAPSHOT_BYTES)).toString('utf8'));
-      const snapshot = await captureFiles(input, process.cwd(), options.file);
-      result = await workflow.preparePublish({ snapshot, recipients: options.to,
+      if (options.target || options.workspace) throw new Error('Choose the recipient target/workspace during inspect, not publication');
+      result = await workflow.preparePublish({ sourceFile: options.input, leafId: options.leaf,
+        selectedFiles: options.file, workspaceRoot: process.cwd(), recipients: options.to,
         provider: options.provider || 'onedrive' });
     }
   } else if (command === 'inspect') {
     if (!positionals[0]) throw new Error(HELP);
-    result = await workflow.inspect({ link: positionals[0], provider: options.provider, expectedDigest: options['expected-digest'] });
+    result = await workflow.inspect({ link: positionals[0], provider: options.provider, expectedDigest: options['expected-digest'],
+      target: options.target, workspaceRoot: options.workspace ? path.resolve(options.workspace) : undefined });
   } else if (command === 'resume' || command === 'clone') {
-    if (options.review) result = await workflow.complete(options.review, 'import', confirm);
-    else if (positionals[0]) result = await workflow.inspect({ link: positionals[0], provider: options.provider });
+    if (options.review) {
+      if (positionals.length || options.target || options.workspace || options.provider || options.input || options.file || options['expected-digest'] || options.leaf) {
+        throw new Error('Cannot change a reviewed import target or workspace; inspect again to create a new review');
+      }
+      result = await workflow.complete(options.review, 'import', confirm);
+    } else if (positionals[0]) result = await workflow.inspect({ link: positionals[0], provider: options.provider,
+      target: options.target, workspaceRoot: options.workspace ? path.resolve(options.workspace) : undefined });
     else throw new Error(HELP);
+  } else if (command === 'assess') {
+    if (!options.review || positionals.length || options.workspace || options.target || options.provider) {
+      throw new Error('assess requires an import review ID; choose workspace/target during inspect');
+    }
+    result = await workflow.assess(options.review, { requirementsReviewed: options['requirements-reviewed'] === true });
   } else if (command === 'revoke') result = await workflow.revoke(positionals[0], confirm);
   else throw new Error(HELP);
   console.log(JSON.stringify(result, null, 2));

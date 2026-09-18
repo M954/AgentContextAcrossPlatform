@@ -41,14 +41,14 @@ async function start(t, elicitation = true) {
     await fs.rm(root, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   });
   await client.connect(transport);
-  return { client, service, root, allow: () => { allow = true; }, prompts: () => prompts };
+  return { client, service, root, allow: (value = true) => { allow = value; }, prompts: () => prompts };
 }
 
 test('official MCP client exercises prepare -> human approval -> publish -> inspect -> context import', { timeout: 120000 }, async (t) => {
   const { client, service, allow, prompts } = await start(t);
   const tools = await client.listTools();
   assert.deepEqual(tools.tools.map((tool) => tool.name),
-    ['session_prepare_publish', 'session_publish', 'session_inspect', 'session_clone', 'session_revoke', 'session_status']);
+    ['session_prepare_publish', 'session_publish', 'session_inspect', 'session_assess', 'session_capabilities', 'session_clone', 'session_revoke', 'session_status']);
   const prepared = value(await client.callTool({
     name: 'session_prepare_publish', arguments: { snapshot: fixture, provider: 'local' },
   }));
@@ -97,6 +97,34 @@ test('MCP clone rejects old approval flags and arbitrary output paths without cr
     assert.equal(rejected.isError, true);
   }
   await assert.rejects(fs.stat(path.join(root, 'outside.json')), { code: 'ENOENT' });
+});
+
+test('MCP native targets are bound during inspect and cannot bypass human confirmation', { timeout: 120000 }, async t => {
+  const { client, root, allow, prompts } = await start(t);
+  allow();
+  const draft = value(await client.callTool({ name: 'session_prepare_publish', arguments: {
+    sourceFile: path.resolve(__dirname, '..', 'fixtures', 'pi-coding-session.jsonl'), provider: 'local',
+  } }));
+  const published = value(await client.callTool({ name: 'session_publish', arguments: { reviewId: draft.reviewId } }));
+  const inspected = value(await client.callTool({ name: 'session_inspect', arguments: {
+    link: published.link, target: 'pi', workspaceRoot: root,
+  } }));
+  assert.equal(inspected.importTarget.target, 'pi');
+  assert.equal(inspected.importTarget.workspace.path, await fs.realpath(root));
+  const before = prompts();
+  for (const override of [{ target: 'copilot' }, { workspaceRoot: root }, { approval: true }]) {
+    const rejected = await client.callTool({ name: 'session_clone', arguments: { reviewId: inspected.reviewId, ...override } });
+    assert.equal(rejected.isError, true);
+  }
+  assert.equal(prompts(), before);
+  allow(false);
+  const cancelled = value(await client.callTool({ name: 'session_clone', arguments: { reviewId: inspected.reviewId } }));
+  assert.equal(cancelled.status, 'cancelled');
+  await assert.rejects(fs.stat(inspected.importTarget.directory), { code: 'ENOENT' });
+  const report = value(await client.callTool({ name: 'session_assess', arguments: { reviewId: inspected.reviewId } }));
+  assert.equal(report.executionAuthorized, false);
+  assert.equal(report.status, 'needs_adaptation');
+  assert.equal(prompts(), before + 1, 'assessment does not grant import consent');
 });
 
 test('concurrent MCP imports never clobber a destination', { timeout: 120000 }, async (t) => {

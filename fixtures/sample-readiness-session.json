@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "1.0",
+  "source": {
+    "host": "fixture-host",
+    "sessionId": "fixture-readiness-001"
+  },
+  "task": {
+    "title": "Check local inputs for a fixture-based continuation",
+    "summary": "Synthetic example of explicit next-step prerequisites, not a real Titan investigation."
+  },
+  "events": [
+    {
+      "eventId": "requirements-declared",
+      "type": "user_message",
+      "timestamp": "2026-09-17T00:00:00.000Z",
+      "content": "Before using the local fixture, check the bridge Node version and whether fixtures/sample-session.json exists. Do not execute it."
+    }
+  ],
+  "workspace": {
+    "repository": "AgentContextAcrossPlatform",
+    "branch": "main",
+    "commit": "fixture",
+    "changes": []
+  },
+  "resume": {
+    "nextAction": "Review the local fixture and decide what to do next; this snapshot authorizes no execution.",
+    "nextStep": {
+      "id": "review-local-fixture",
+      "requirements": [
+        {
+          "id": "bridge-runtime",
+          "kind": "runtime",
+          "contractKey": "runtime.bridge-node",
+          "required": true,
+          "expected": { "minimumMajor": 20 }
+        },
+        {
+          "id": "local-fixture",
+          "kind": "workspace",
+          "contractKey": "workspace.file",
+          "required": true,
+          "expected": { "relativePath": "fixtures/sample-session.json" }
+        }
+      ]
+    }
+  }
+}

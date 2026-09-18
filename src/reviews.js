@@ -55,12 +55,14 @@ class ReviewStore {
       if (error.code !== 'ENOENT') throw error;
     }
     if (typeof confirm !== 'function') throw new Error('A trusted interactive approval UI is required');
-    if (await confirm(review) !== true) return { status: 'cancelled', reviewId };
+    const approvedDigest = review.digest;
+    // UI code receives a copy: presentation must not mutate the executable plan.
+    if (await confirm(structuredClone(review)) !== true) return { status: 'cancelled', reviewId };
     const unchanged = await this.get(reviewId);
-    if (unchanged.digest !== review.digest) throw new Error('Review changed during confirmation');
+    if (unchanged.digest !== approvedDigest) throw new Error('Review changed during confirmation');
     const lock = `${this.file(reviewId)}.claimed`;
     try {
-      await fs.writeFile(lock, review.digest, { flag: 'wx', mode: 0o600 });
+      await fs.writeFile(lock, approvedDigest, { flag: 'wx', mode: 0o600 });
     } catch (error) {
       if (error.code === 'EEXIST') {
         throw new Error('This review is already running or had an incomplete attempt. Inspect its result and prepare a new review if needed.');
@@ -68,7 +70,7 @@ class ReviewStore {
       throw error;
     }
     // Claims are retained after ambiguous failures: never silently duplicate an upload or import.
-    const result = await perform(review.plan);
+    const result = await perform(unchanged.plan);
     await writePrivateJson(statePath, result);
     return result;
   }

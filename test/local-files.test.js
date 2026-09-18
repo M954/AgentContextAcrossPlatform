@@ -16,7 +16,7 @@ test('explicit selected files remain inside workspace and bounded text-only capt
   await fs.writeFile(path.join(root, 'query.sql'), 'select 1;');
   const captured = await captureFiles(fixture, root, ['query.sql']);
   assert.equal(captured.files[0].content, 'select 1;');
-  for (const selection of ['../query.sql', '.env', 'data.pfx']) {
+  for (const selection of ['../query.sql', '.env', 'data.pfx', '.pi/agent/auth.json', '.pi/extensions/unsafe.ts']) {
     await assert.rejects(captureFiles(fixture, root, [selection]));
   }
   await fs.writeFile(path.join(root, 'binary.txt'), Buffer.from([0, 255]));

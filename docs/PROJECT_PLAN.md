@@ -1,13 +1,13 @@
 # AgentContextAcrossPlatform - Remote Session Clone Project Plan
 
-> Status: Incremental implementation. A local MCP/CLI now supports reviewed OneDrive work/school and SharePoint bundle transport plus a loopback test provider. Native session capture/restoration and recipient readiness remain incomplete.
+> Status: v0.3.0 integration. Reviewed OneDrive/SharePoint transport now includes live pi branch capture, selected-file format detection, target-bound native pi/Copilot import and advisory readiness checks. The loopback provider remains test-only. See [native integration](PI.md) and [readiness](READINESS.md).
 > This plan defines the new primary goal: publish a resumable agent-session snapshot to a remote location and let another user clone it into their local agent.
 >
 > The previous knowledge-handoff plan is preserved in [KNOWLEDGE_HANDOFF_PLAN.md](KNOWLEDGE_HANDOFF_PLAN.md).
 > The [code plan](CODE_PLAN.md) defines implementation modules, contracts, milestones, and tests. It separates restored context from next-step execution readiness; a successful import does not guarantee an equivalent environment.
 > For implemented behavior rather than the target design, see [Current workflow, user experience, and remaining gaps](WORKFLOW_AND_GAPS.md).
 
-The loopback provider is for synthetic local testing only and has no authentication. The OneDrive provider uses delegated Microsoft authentication and provider-managed file permissions. Its protocol is exercised with synthetic Graph fixtures; tenant-specific consent, live two-user sharing and native host integration remain deployment gates. See the README for the implemented CLI and supported limits.
+The loopback provider is for synthetic local testing only and has no authentication. The OneDrive provider uses delegated Microsoft authentication and provider-managed file permissions. Its protocol is exercised with synthetic Graph fixtures; tenant-specific consent and live two-user sharing remain deployment gates. Native pi/Copilot creation and the live pi extension have local host integration coverage, not a claim of environment equivalence. See the README for the implemented CLI and supported limits.
 
 ## 1. Product Definition
 
@@ -508,16 +508,16 @@ Copilot CLI can load this project through two complementary mechanisms:
 The local setup is:
 
 ```text
-Start local snapshot service
+Configure approved Entra app and sign in interactively
     -> register src/mcp-server.js with `copilot mcp add`
     -> trust the repository
     -> reload `/skills`
     -> ask Copilot to share or resume a session
 ```
 
-MCP registration does not itself grant access to the complete Copilot transcript. The first adapter therefore accepts a normalized snapshot input and applies local validation and redaction. A future Copilot host adapter must obtain an approved session export through a supported interface rather than scraping arbitrary files or sending the entire history by default.
+MCP registration does not grant access to the complete live Copilot transcript. The integration accepts authorized normalized input or a user-selected export and detects supported formats. The pi extension separately captures its actual active branch through public host APIs. No history-directory scanning is performed.
 
-The first Copilot-facing clone is file-backed under the configured local clone directory. It is not native session restoration until a host adapter can create a Copilot session with external provenance.
+Document import remains the default. Native pi/Copilot targets are selected during inspection and bound to the exact review along with the recipient workspace and private destination. After human approval and access/version/configuration rechecks, official host APIs create a session containing external reference context. No model turn, source tool, or source environment restoration is performed.
 
 ## 16. OneDrive/SharePoint File Handoff Implementation
 
@@ -532,7 +532,7 @@ Implementation boundaries:
 - `graph-auth.js` uses explicit delegated work/school sign-in and OS-encrypted MSAL state. No app-only identity, plaintext-cache fallback or model-visible token is supported.
 - `reviews.js` and `workflow.js` bind human approval to the exact bundle, account, configuration, destination, recipients and action. Reviews expire. A boolean supplied by the model cannot authorize an operation.
 - `mcp-server.js` uses the official MCP SDK and human elicitation. Unsupported clients must use the interactive CLI; the integration does not fake a human approval.
-- Import rechecks live file access/version and writes a separate context document and quarantined supporting files. It returns `context_document` and `needs_adaptation`, not a ready native session.
+- Import rechecks file access/version, writes isolated context/supporting files, and optionally creates the reviewed native pi/Copilot session. Document and native results are explicit; execution remains unassessed. Host/workspace changes require a new review.
 - `plugin.json`, `mcp.json` and the packaged skill support Copilot plugin registration. Node and a one-time pinned dependency installation are still prerequisites.
 
 SharePoint file permissions are not automatically exclusive: files may inherit access from their destination. The review calls out that boundary; the tool does not alter existing parent permissions. Revoking a generated link neither revokes independent access nor recalls downloaded copies. Digests detect mismatched content but are not an author signature or immutable-storage guarantee.

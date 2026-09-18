@@ -4,21 +4,22 @@
 
 The implementation uploads one bounded JSON bundle, creates a specific-people read-only link, and downloads it using the recipient's own Microsoft identity. OneDrive supplies storage and sharing permissions; no custom hosted Web App is required for this path.
 
-> **Restore mode: context document, not native session resumption.** Automatic capture of the complete Copilot transcript, native session creation, and recipient environment readiness checks are not implemented. Only authorized normalized input and selected text files are supported. The Graph adapter has synthetic contract coverage; deployment in your tenant requires an approved Entra application, consent, and a live two-user exercise.
+> **Default restore mode: context document.** Explicitly reviewed native pi/Copilot creation and live pi branch capture are also available. Native sessions contain external reference context, not a reconstructed source environment. Passive readiness checks are advisory. The Graph adapter has synthetic contract coverage; deployment in your tenant still requires an approved Entra application, consent, and a live two-user exercise. See [pi/native integration](docs/PI.md).
 
 For the full sharer/recipient journey, Copilot chat experience, failure handling, and prioritized unfinished work, see [Current workflow, user experience, and remaining gaps](docs/WORKFLOW_AND_GAPS.md).
 
 ## What is implemented
 
 ```text
-Authorized snapshot + selected text files
+Authorized snapshot, selected export, or live pi branch + selected text files
     -> local redaction and review
     -> human approval bound to that exact draft/account/destination/recipients
     -> OneDrive upload
     -> specific-people read link
     -> recipient signs in and inspects
-    -> separate human approval and access/version recheck
-    -> isolated context document + supporting files
+    -> choose document/pi/Copilot target and recipient workspace
+    -> exact import review + human approval + access/version/destination recheck
+    -> isolated context document + files + optional native session
 ```
 
 The provider accepts modern `onedrive.cloud.microsoft` links, `1drv.ms` links, and explicitly configured SharePoint hostnames. It resolves links through Microsoft Graph rather than scraping the sharing webpage. A presentation, spreadsheet, arbitrary JSON file, or folder is not a session bundle.
@@ -28,8 +29,8 @@ Work/school OneDrive and SharePoint are supported by this implementation. Consum
 ## Privacy, security, and limitations
 
 - **Default-deny writes.** Preparing a share only creates a local sanitized draft. Publication and import require a trusted MCP human-confirmation form or interactive CLI approval. `approval: true`, `--approve`, and `--yes` are not authorization.
-- **Exact review scope.** Reviews bind the sanitized bundle, action, account, destination, recipients, configuration and expiration. Changing them requires another review. Ambiguous/failed attempts are not silently retried.
-- **Minimal collection.** No home-directory scanning, environment capture, or automatic historical-session collection. At most 20 selected UTF-8 text files/attachments are included. Credential/agent-state locations, traversal paths, symlinks and junctions are blocked.
+- **Exact review scope.** Reviews bind the sanitized bundle, action, account, destination, recipients, configuration and expiration. Native import additionally binds its target, recipient workspace, output directory and host configuration. Changing them requires another review. Ambiguous/failed attempts are not silently retried.
+- **Minimal collection.** No home-directory scanning, environment capture, or automatic historical-session collection. The pi extension captures only its approved active branch; selected export files are normalized without following attachments. At most 20 supporting text files/attachments are included. Credential/agent-state locations are blocked for supporting-file collection; explicitly selected conversation histories use dedicated parsers.
 - **Local secret processing.** Supported inline secrets are replaced, including quoted/escaped values. Incomplete quoted credentials, known bearer/basic credentials and private-key blocks stop publication. Detection is best effort, not proof that sensitive data is absent. Read the full preview.
 - **Own identity.** The recipient signs in independently. MSAL uses OS-protected token persistence; tokens, cookies, and sign-in codes must never be pasted into chat or included in bundles. No plaintext token-cache fallback is allowed.
 - **Restricted sharing.** Only specific-people read links are requested, never anonymous or organization-wide links. Existing folder/site permissions remain: choose a private or restricted destination. A read-only link does not make a broadly accessible library private.
@@ -75,7 +76,7 @@ On Windows, Windows PowerShell is required for owner/ACL checks; new state direc
 
 ## Share from the CLI
 
-The input must be an authorized normalized snapshot matching `fixtures\sample-session.json`. This is not a native Copilot export parser.
+`--input` accepts an authorized normalized snapshot or a selected export. Format detection supports pi v2/v3 JSONL, Copilot event/semantic JSONL, chat-message JSON and Markdown/text. No source-agent argument is required. The current pi branch can also be shared directly through the [pi extension](docs/PI.md). File capture is bounded, excludes private state, and does not scan other sessions.
 
 ```powershell
 node src\cli.js share --input fixtures\sample-session.json --to teammate@contoso.com
@@ -118,6 +119,21 @@ Inspect creates a local review, not a session. After confirmation, resume produc
 
 Results report `status: "context_imported"`, `restoreMode: "context_document"`, `executionReadiness: "not_assessed"` and a `needs_adaptation` readiness explanation. The user may explicitly attach `context.md` to a new agent chat and choose a local next step. The source agent's hidden state, tools, permissions, repository and live connections are not restored.
 
+### Native pi or Copilot destination
+
+Choose the target and workspace when inspecting, not after approval:
+
+```powershell
+node src\cli.js inspect "<sharing-link>" --target pi --workspace C:\my-project
+# Or use --target copilot
+node src\cli.js assess --review <import-review-id>
+node src\cli.js resume --review <import-review-id>
+```
+
+The import form shows the selected target, workspace and private output location. Changing them requires another inspect/review; `resume --review` accepts no target/workspace overrides. After consent, access/version and destination checks run before any native host invocation.
+
+A successful native import reports `native_session_created`, a local session ID, and a resume command. It performs no model turn or source tool replay. Pi writes an external custom-context message; Copilot imports a semantic text-context message through its official importer. Both remain execution-unassessed. Copilot uses the private home shown in `resumeCommand.env.COPILOT_HOME`; sign in there with your own model account if needed.
+
 The publisher can revoke a link by saved publication ID, with another confirmation:
 
 ```powershell
@@ -150,11 +166,31 @@ Inspect the session bundle at <sharing-link>.
 Import the reviewed bundle as local context.
 ```
 
-Tools: `session_prepare_publish`, `session_publish`, `session_inspect`, `session_clone`, `session_revoke`, `session_status`.
+Tools: `session_prepare_publish`, `session_publish`, `session_inspect`, `session_assess`, `session_capabilities`, `session_clone`, `session_revoke`, `session_status`.
+
+`session_prepare_publish` accepts exactly one `snapshot` or user-selected `sourceFile`. `session_inspect` optionally accepts `target` and absolute `workspaceRoot`. `session_clone` still accepts only the reviewed ID—never an approval boolean or target override.
 
 The server asks the human directly through MCP elicitation. Without a supported confirmation form, publication/import is blocked and the user must use the interactive CLI. Do not use `--allow-all` to work around permissions. No custom `/session share` or `/session resume` commands are registered.
 
-**Migration from the earlier prototype:** boolean approval arguments and the CLI `--approve`/`--output` import path are no longer accepted. Prepare/inspect first, then use the review ID. This replaces the earlier boolean guard with content-bound human approval, while preserving no-overwrite and context-only reporting.
+**Migration from the earlier prototype:** boolean approval arguments and the CLI `--approve`/`--output` import path are no longer accepted. Prepare/inspect first, then use the review ID. This replaces the earlier boolean guard with content-bound human approval, while preserving no-overwrite behavior and truthful document/native reporting.
+
+## Pi extension and cross-agent validation
+
+After dependency setup, load the reviewed extension or install this checkout as a pi package:
+
+```powershell
+pi -e <checkout>\extensions\pi-session.ts
+# Or: pi install <checkout>
+```
+
+Inside pi, use `/ac-share teammate@contoso.com` and `/ac-resume <sharing-link>`. These commands use the same persisted review IDs, Microsoft identity, human UI confirmation, and access/version rechecks as CLI/MCP. They do not override pi's built-in commands. See [pi setup and native import boundaries](docs/PI.md).
+
+```powershell
+npm run demo -- --source pi --target copilot
+npm run demo -- --source copilot --target pi
+```
+
+Demos use synthetic Graph transport and synthetic approval callbacks with the real installed destination host. They do not sign in to a tenant, automate the production CLI confirmation phrase, call a model, or complete the sample coding task. Reports explicitly distinguish simulated transport from real native creation.
 
 ## Local-only transport test
 
@@ -178,6 +214,8 @@ It has no user authentication; keep it on loopback with synthetic data. Do not d
 ## Design and API references
 
 - [Current workflow, user experience, and remaining gaps](docs/WORKFLOW_AND_GAPS.md)
+- [Pi/Copilot native integration with reviewed OneDrive sharing](docs/PI.md)
+- [Passive readiness for import reviews](docs/READINESS.md)
 - [Active project plan](docs/PROJECT_PLAN.md)
 - [Code plan and recipient-readiness milestones](docs/CODE_PLAN.md)
 - [Preserved knowledge-handoff plan](docs/KNOWLEDGE_HANDOFF_PLAN.md)

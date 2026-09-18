@@ -9,7 +9,7 @@ const {
 } = require('./snapshot');
 
 const MAX_BUNDLE_BYTES = MAX_SNAPSHOT_BYTES + 64 * 1024;
-const SENSITIVE_PATH = /(?:^|\/)(?:\.env(?:\..*)?|\.git|\.ssh|\.aws|\.azure|\.copilot|\.claude|\.agent-context|node_modules|credentials(?:\..*)?|id_rsa|id_ed25519|.*\.(?:pem|pfx|p12|key))(?:\/|$)/i;
+const SENSITIVE_PATH = /(?:^|\/)(?:\.env(?:\..*)?|\.git|\.ssh|\.aws|\.azure|\.copilot|\.claude|\.pi|\.agent-context|node_modules|credentials(?:\..*)?|id_rsa|id_ed25519|.*\.(?:pem|pfx|p12|key))(?:\/|$)/i;
 const TEXT_EXTENSIONS = new Set(['.txt', '.md', '.json', '.jsonl', '.js', '.ts', '.jsx', '.tsx', '.py',
   '.go', '.cs', '.sql', '.kql', '.yaml', '.yml', '.xml', '.csv', '.patch', '.diff', '.html', '.css']);
 
@@ -34,10 +34,14 @@ async function captureFiles(snapshot, workspace, names = []) {
   return files.length ? { ...snapshot, files } : snapshot;
 }
 
-function createBundle(snapshot) {
+function createBundle(snapshot, priorRedactions = []) {
+  if (!Array.isArray(priorRedactions) || priorRedactions.length > 10000 ||
+      priorRedactions.some(value => typeof value !== 'string' || value.length > 4096)) {
+    throw new Error('Invalid local capture redaction metadata');
+  }
   for (const file of snapshot.files || []) validateSelectedPath(file.path);
   const prepared = prepareSnapshot(snapshot);
-  const record = createSnapshotRecord(prepared.snapshot, { redactions: prepared.redactions });
+  const record = createSnapshotRecord(prepared.snapshot, { redactions: [...new Set([...priorRedactions, ...prepared.redactions])] });
   const bundle = { format: 'agent-context-bundle', bundleVersion: 1, record };
   if (Buffer.byteLength(canonicalJson(bundle)) > MAX_BUNDLE_BYTES) throw new Error('Bundle exceeds size limit');
   return bundle;

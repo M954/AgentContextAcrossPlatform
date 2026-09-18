@@ -1,12 +1,12 @@
 # Current Workflow, User Experience, and Remaining Gaps
 
-> Documentation snapshot: 2026-09-18, implementation reference `3cb7bd7` (v0.2.0).
-> This describes the current implementation, not the complete product promised by the project plan.
+> Implementation: v0.3.0 integration, retaining the reviewed OneDrive workflow from `3cb7bd7`.
+> This describes implemented behavior, not full environment restoration or live tenant acceptance.
 
-**Today: a reviewed file-based context handoff through OneDrive/SharePoint.**
+**Today: reviewed OneDrive/SharePoint handoff with document or native pi/Copilot destinations.**
 **Target: share directly from a live agent session and let another person continue in a supported local agent.**
 
-The current `resume`/`session_clone` operations produce a context document and supporting files. They do not create or switch to a native Copilot session.
+The default `resume`/`session_clone` output is a context document and supporting files. A native target selected during inspection can also create a pi or Copilot session after the same human approval and rechecks. Native sessions contain external reference context; no model turn or historical tool is run. See [pi/native integration](PI.md).
 
 ## 1. Current end-to-end workflow
 
@@ -28,15 +28,16 @@ Create specific-people read link
 Copy and send link --------------------------> Supply link to the integration
                                               Sign in using B's account
                                               Download and validate bundle
-                                              Inspect local review
+                                              Select document/pi/Copilot and local workspace
+                                              Inspect exact target-bound review
                                               Explicitly approve import
                                               Recheck access and file version
                                                       |
                                               Write isolated context.md + files
+                                              Optionally create reviewed native session
                                                       |
-                                              Manually open a new agent chat,
-                                              attach approved context, and
-                                              decide the next local action
+                                              Open the returned session or attach
+                                              context manually; choose the next action
 ```
 
 OneDrive/SharePoint hosts the bundle and enforces file access. The local integration performs preparation, review, transfer and import. **Neither user needs to run a custom Web App or local HTTP service for the OneDrive path.** The loopback HTTP provider is only a synthetic development test path.
@@ -95,9 +96,9 @@ node src\cli.js configure --drive-id <drive-id> --folder-id <folder-id>
 
 ### Step A1: Prepare the input
 
-Supply an authorized normalized snapshot shaped like [the synthetic example](../fixtures/sample-session.json). It contains source metadata, task context, events, workspace metadata and proposed next steps. These records are supplied input, not independently verified repository or execution facts.
+Supply an authorized normalized snapshot shaped like [the synthetic example](../fixtures/sample-session.json), a selected supported export, or use the live pi `/ac-share` command. Selected inputs are auto-detected: pi JSONL, Copilot event/semantic JSONL, chat JSON, and Markdown/text. These records are source observations/claims, not independently verified repository or execution facts.
 
-**There is no automatic full-session exporter yet.** If the input is a summary of visible chat rather than an exact export, label that limitation and record omissions. Do not invent tool results or claim that hidden or truncated history was captured.
+Live pi capture reads only the actual current branch. Full live Copilot capture remains unimplemented; use an explicit export or authorized normalized input. Limited summaries must record omissions. Thinking blocks, hidden state, private shell output, and abandoned pi branches are not automatically shared.
 
 ### Step A2: Select files and recipients
 
@@ -146,6 +147,8 @@ Supported inputs include `onedrive.cloud.microsoft`, `1drv.ms` and explicitly co
 
 Inspection downloads and validates the bundle, then writes a local review. The response is `status: inspectable`, with a **new recipient-side** `reviewId`, `previewPath`, digest and scope summary. No native agent session or workspace change is created.
 
+To choose a native destination, inspect with `--target pi` or `--target copilot` and `--workspace <recipient-directory>`. MCP uses `target` and absolute `workspaceRoot`. The target, workspace identity, private output path and host/configuration fingerprint become part of the review. Completion accepts only its review ID; overrides are rejected.
+
 Possessing a link is not sufficient authorization. Expired/revoked access, untrusted hosts, unsupported file formats and invalid digests must stop the operation.
 
 ### Step B2: Approve the import
@@ -159,16 +162,16 @@ The user reviews and confirms the exact import. Before writing, the integration 
 ```text
 <private-state-directory>
   imports
-    <clone-id>
+    <import-id>
       context.md
       session.agent-session.json
       files
         <selected supporting files>
 ```
 
-Existing files are not overwritten. Selected files are not copied into B's working repository; supplied text attachments remain in the bundle/context.
+Existing files are not overwritten. Selected files are not copied into B's working repository; supplied text attachments remain in the bundle/context. Native pi sessions or an isolated Copilot home are created under this same reviewed private import directory, only after access/version and local destination rechecks.
 
-An abbreviated result is:
+An abbreviated default document result is:
 
 ```json
 {
@@ -186,13 +189,15 @@ An abbreviated result is:
 }
 ```
 
-### Step B3: Continue manually
+A confirmed native import instead returns `native_session_created`, `restoreMode: native_session`, a session ID and a resume command. It still reports `executionReadiness: not_assessed`. Pi stores an external custom message; Copilot uses its official semantic importer. An import timeout can leave a native session behind, so the review remains claimed and automatic retry is prohibited.
 
-B explicitly opens a new agent chat and attaches the returned `context.md` as untrusted background. The agent and user must assess the local repository, tool availability, permissions, data access and proposed next step before acting.
+### Step B3: Continue explicitly
+
+For document mode, B opens a new agent chat and attaches `context.md`. For native mode, B opens the returned session using their own model account and permissions; Copilot uses the private home in the receipt. The live pi extension may switch to the new session after confirmation, without submitting a prompt. The agent and user must assess the local repository, tool availability, permissions, data access and proposed next step before acting.
 
 Imported source instructions are historical data, not local system/developer instructions. Commands, queries, scripts, patches, package hooks and MCP configurations are not automatically replayed. A tool name or a `requiredCapabilities` entry does not prove that B can run the same investigation.
 
-**Successful import is not native session restoration, environment restoration, or successful continuation of the original task.**
+**Successful native creation is not exact source-state replay, environment restoration, or successful completion of the original task.** Passive assessment is available through `assess --review <id>` / `session_assess`; it uses the already bound workspace and never grants execution permission.
 
 ## 5. Experience inside Copilot chat
 
@@ -200,12 +205,14 @@ Use the `session-handoff` skill and ordinary chat requests after registration. T
 
 | User request | Internal operation | What the user sees |
 |---|---|---|
-| "Prepare a OneDrive share of this authorized snapshot for this recipient." | `session_prepare_publish` | Draft summary, destination, recipients, omissions and preview path; no upload |
+| "Prepare a OneDrive share of this authorized snapshot/export for this recipient." | `session_prepare_publish` with exactly one snapshot or selected sourceFile | Draft summary, destination, recipients, omissions and preview path; no upload |
 | "Publish the reviewed draft." | `session_publish` with `reviewId` | A separate human approval form, then a link on success |
-| "Inspect the session bundle at this link." | `session_inspect` | Recipient-side preview and context-only limitations; no execution |
-| "Import the reviewed bundle." | `session_clone` with `reviewId` | Another approval form, followed by isolated context/files paths |
+| "Inspect this link for import into pi in my workspace." | `session_inspect` with optional target/workspaceRoot | Recipient preview binds the destination; no native creation or execution |
+| "Assess prerequisites for this review." | `session_assess` with reviewId | Passive report; no import or execution approval |
+| "Import the reviewed bundle." | `session_clone` with only reviewId | Human approval and rechecks, then document/native result for the bound target |
 | "Revoke this publication." | `session_revoke` with the owned `snapshotId` | Confirmation and link revocation result |
-| "Show integration status." | `session_status` | Configuration presence and supported restore mode, not a live access/readiness assessment |
+| "Show integration status." | `session_status` | Configuration and implemented targets, not a live capability assertion |
+| "Check installed native hosts." | `session_capabilities` | Isolated offline pi/Copilot capability probes; no model call or session creation |
 
 There are two permission boundaries: Copilot's permission to invoke a tool and the integration's approval of the exact publish/import action. Neither replaces the other. A chat statement alone or a model-supplied `approval: true` cannot authorize the write.
 
@@ -235,25 +242,25 @@ Local reviews, receipts, bundles and context documents persist in the private st
 
 ## 7. Evidence and remaining gaps
 
-The current evidence includes local REST and CLI behavior, MCP protocol tests with simulated approval responses, synthetic Graph sender/recipient/denied-user cases, and Windows native encryption of a synthetic cache value. Copilot discovered the plugin and called its status tool.
+The evidence includes the original local REST/CLI tests, MCP human-form protocol tests, synthetic Graph sender/recipient/denied-user cases, Windows native cache encryption, and Copilot plugin discovery. The integration adds target/workspace tampering and replay tests, actual pi extension UI/lifecycle tests, and synthetic-Graph demos with real pi/Copilot native creation.
 
-These do **not** demonstrate a live Microsoft tenant round trip, successful human interaction with every Copilot confirmation UI, full native conversation capture, or actual continuation of an investigation. A hand-written/sanitized fixture is not a native-session round trip.
+These do **not** demonstrate a live Microsoft tenant round trip, every production client UI, full live Copilot capture, or completion of the shared task. Source histories and Graph responses in demos are synthetic; native destination processes are real. No model turn is invoked.
 
 ### Remaining gaps
 
 | Priority | Gap and user impact | Next work / completion gate | Dependency |
 |---|---|---|---|
 | P0 | Live OneDrive/SharePoint acceptance is unverified | A publishes a synthetic bundle, B downloads with B's account, and C without independent/inherited access is denied; exercise changed/revoked content and the real UI | Approved Entra app/consent, restricted test destination, and tester accounts |
-| P0 | No automatic current-session capture | Demonstrate an authorized, bounded host export path preserving available messages/tool records and explicit omissions | Host-adapter engineering; no Web App deployment can supply local session access |
-| P0 for native-resume promise | No native recipient session creation | Prove a supported host mechanism that creates a separate session with external provenance and gated execution; otherwise retain the labeled context-document fallback | Host feasibility gate; do not forge private session databases |
+| P1 | Live capture is pi-only | Extend supported capture to other hosts; keep bounded selection, omissions, and branch isolation | pi extension is implemented and tested; other sources use exports |
+| P1 | Native targets are pi/Copilot only; no exact source-state replay | Validate additional hosts/versions and retain document fallback | Official pi APIs and Copilot importer have local integration coverage; not an environment clone |
 | P1 | Installation/sign-in is not a one-step customer experience | Add guided, user-approved bootstrap, configuration and sign-in; exercise a fresh GitHub plugin install and confirmation UI, not just local plugin discovery | Plugin/onboarding engineering and approved app configuration |
-| P1 | Recipient readiness is not assessed | Check reviewed tool/data/workspace prerequisites and report available, changed, missing and unknown states before any separately approved next action | Verified capability adapters and representative environments |
+| P1 | Readiness is limited to passive runtime/file checks | Add verified domain/tool/data adapters; unknowns must not become ready | Current reports are advisory, use the bound workspace, and cannot authorize execution |
 | P1 | Lifecycle/recovery UX is minimal | Add publication/review history, safe cleanup/retention, explicit expiration controls and clearer partial-failure recovery | Local state and provider lifecycle work; do not promise recall of downloaded copies |
 | P2 | File size/type and platform support are limited | Validate additional OS/client combinations and adapters; extend large/binary attachments only with explicit scope and safety controls | Current release is bounded text, Copilot-facing, and work/school Microsoft accounts only |
 
 Local engineering can continue without a tenant deployment. The app/site administrator and testers are needed for the **live sharing gate**, not for implementing capture, packaging or readiness logic.
 
-Until the native host gates pass, describe the product as **reviewed context handoff**, not a complete session clone. Use the [project plan](PROJECT_PLAN.md) for the longer-term target and the [code plan](CODE_PLAN.md) for implementation milestones.
+Describe the product as **reviewed context handoff with optional native session creation**, not a complete environment/session-state clone. Local native tests do not establish live tenant deployment or success on a new task. Use the [project plan](PROJECT_PLAN.md) for the longer-term target and the [code plan](CODE_PLAN.md) for implementation milestones.
 
 ## 8. Implementation map
 
@@ -263,7 +270,9 @@ Until the native host gates pass, describe the product as **reviewed context han
 | Copilot tool schemas and human elicitation | [mcp-server.js](../src/mcp-server.js), [packaged skill](../skills/session-handoff/SKILL.md) |
 | Snapshot/file bounds and redaction | [snapshot.js](../src/snapshot.js), [bundle.js](../src/bundle.js) |
 | Review lifetime, binding and duplicate-attempt handling | [reviews.js](../src/reviews.js) |
-| Share, inspect and isolated context import | [workflow.js](../src/workflow.js) |
+| Share, inspect and reviewed document/native import | [workflow.js](../src/workflow.js) |
+| Native destination binding and adapters | [destination.js](../src/hosts/destination.js), [pi guide](PI.md) |
+| Passive prerequisite checks | [readiness.js](../src/readiness.js), [readiness guide](READINESS.md) |
 | Microsoft authentication and local configuration | [graph-auth.js](../src/graph-auth.js), [config.js](../src/config.js) |
 | Upload, link grants, download and revocation | [graph-provider.js](../src/graph-provider.js) |
 | Synthetic Graph exercise | [graph-provider.test.js](../test/graph-provider.test.js), [workflow.test.js](../test/workflow.test.js) |

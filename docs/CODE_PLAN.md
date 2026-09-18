@@ -4,7 +4,7 @@
 > Based on the [active project plan](PROJECT_PLAN.md), with an important refinement: restoring context and being able to continue execution are separate outcomes. A successful import must never imply that the recipient's environment reproduces the source environment.
 > The earlier knowledge-mining direction remains in [KNOWLEDGE_HANDOFF_PLAN.md](KNOWLEDGE_HANDOFF_PLAN.md) and is not part of this implementation's first milestone.
 
-Implementation update: the current JavaScript slice adds OneDrive/SharePoint transport, delegated MSAL authentication, content-bound human reviews, official MCP tools and plugin packaging. Import is explicitly `context_document` with unresolved readiness. The broader modules and milestones below remain the target; native host integration, live tenant acceptance and the readiness matrix are not claimed complete. See the README for current setup and commands.
+Implementation update: v0.3.0 retains OneDrive/SharePoint transport, delegated MSAL authentication, content-bound human reviews and official MCP tools. It adds pi live capture, selected export parsing, advisory readiness, and native pi/Copilot import after exact target/workspace review and remote access/version rechecks. No boolean approval bypass or custom production sharing server is restored. See [PI.md](PI.md) and [READINESS.md](READINESS.md). Live tenant acceptance and general environment compatibility remain unverified.
 
 ## 1. Implementation Target
 
@@ -56,7 +56,7 @@ Build on that baseline rather than treating this as an empty repository. Preserv
 
 Use TypeScript with strict checking, Node.js 24 LTS, pnpm workspaces, Zod for runtime schemas, Vitest for tests, and the official MCP SDK for the local bridge. Use Fastify for a minimal authenticated remote API. Lock dependency versions if this migration is adopted; no packages are installed by this plan.
 
-For the hackathon remote provider, use SQLite for ownership, access rules, idempotency, and snapshot metadata, plus a private filesystem directory for immutable blobs. This is a single-instance development provider, not a production multi-tenant deployment. Clients depend on a storage interface rather than this implementation.
+The earlier standalone SQLite/HTTP provider proposal is superseded for the main sharing path: use the existing OneDrive/SharePoint provider and MSAL authentication. The local HTTP implementation remains a synthetic test provider. The module layout below is conceptual; the current implementation stays in `src/` without requiring a TypeScript/workspace rewrite.
 
 ```text
 apps/
@@ -84,7 +84,7 @@ packages/
     hosts/                    # Host-specific capture and restore implementations
     capabilities/             # Trusted tool, data, workspace, and runtime checks
     remote/                   # HTTP client and in-memory test provider
-    fixtures/                 # Explicitly simulated hosts and Titan-like data access
+    fixtures/                 # Explicitly simulated hosts and generic task dependencies
 tests/
   fixtures/                   # Sanitized source records and environment variants
   unit/
@@ -291,9 +291,9 @@ Keep `/session share` and `/session resume <link>` as the customer-facing entry 
 
 The initial execution path is limited to one trusted, approved investigation step through a capability adapter. Do not expose a generic “execute commands from snapshot” operation. Use typed errors such as `UNSUPPORTED_HOST`, `INTEGRITY_MISMATCH`, `ACCESS_DENIED`, `REVIEW_REQUIRED`, `STALE_APPROVAL`, and `PREREQUISITE_UNRESOLVED`.
 
-## 7. Minimal Remote Provider
+## 7. Remote Provider Boundary
 
-Implement these routes in `apps/remote`:
+The current transport is OneDrive/SharePoint through the existing Graph provider. No new hosted service, platform token system, or SQLite metadata service is required. The original HTTP route sketch below is retained only as a local test-provider reference:
 
 ```text
 POST   /v1/snapshots
@@ -302,7 +302,7 @@ GET    /v1/snapshots/:id/status
 POST   /v1/snapshots/:id/revoke
 ```
 
-For the private hackathon deployment, provision separate credentials for two demo identities outside the repository. Store only credential hashes server-side; use an authentication middleware abstraction so a real OIDC integration can replace the demo mechanism. Demo credentials and URLs must not be embedded in shared snapshots or committed files.
+Use approved delegated Microsoft identities and OS-protected MSAL persistence for real sharing. Synthetic Graph fixtures may simulate users without signing in, but must not be presented as live tenant acceptance. Model tools cannot initiate login or receive tokens. Do not restore the standalone prototype's per-user service-token mechanism.
 
 Required behavior:
 
@@ -318,23 +318,13 @@ Required behavior:
 
 A web preview, public sharing, self-service accounts, distributed storage, and cross-organization federation are later work. An authenticated link can be consumed by the local plugin without building a browser application.
 
-## 8. Titan Validation Slice
+## 8. Generic Coding Validation
 
-Titan is the first candidate task, not a hardcoded assumption in the core. Its actual API, metric definitions, and tool access remain unverified.
+The demo uses a synthetic unfinished coding task, not Titan or another domain data source. It captures pi/Copilot exports, prepares exact reviews, simulates named-recipient Graph access, and creates a real native session in the selected installed host after a synthetic test confirmation.
 
-Start with a clearly labeled `FixtureInvestigationAdapter` implementing simulated cases. Add a real Titan adapter only after inspecting an authorized source conversation and the available query interface.
+Production interfaces still require trusted human UI; the demo must not automate the CLI confirmation phrase or use a live Microsoft account. Reports distinguish fixture history/Graph transport from actual native creation. No model fixes the example task during this test.
 
-For one next step, establish:
-
-- A reviewed query template, not an arbitrary historical command to replay.
-- A recipient-local data connection and current authorization.
-- Required fields, metric definitions, units, time semantics, and data availability where verifiable.
-- New target and time-range parameters with bounds.
-- Query count, timeout, result-size, and cost-related limits supported by the actual tool.
-
-Different tool names may map to the same reviewed capability. Matching tool names may still target different datasets and fail the check. A simple connectivity query does not prove metric equivalence or permission to access every required dataset.
-
-The acceptance demo should show both a successful continuation and a correctly blocked mismatch. No matching live environment is required for the blocked case; no simulated adapter result may be presented as a real Titan execution.
+Acceptance includes both pi-to-Copilot and Copilot-to-pi, denied recipients, remote changes/revocation before import, target/workspace changes during approval, and no duplicate host invocation on receipt replay. Passive readiness checks are optional; unknown tool/data prerequisites are not guessed or executed.
 
 ## 9. Test Plan
 
@@ -382,7 +372,7 @@ The acceptance demo should show both a successful continuation and a correctly b
 | M3: Recipient readiness | `requirements`, `readiness`, capability adapters | Environment matrix passes locally before adding network transport |
 | M4: Remote publish/inspect | Remote API and client | Two identities exchange an immutable snapshot; third identity denied; retries and revocation tested |
 | M5: Host/bridge integration | MCP bridge, real host adapters, `restore` | Share/resume commands create an approved paused session or report the fallback honestly |
-| M6: Real investigation validation | Verified Titan adapter, end-to-end tests | One actual approved next step plus one correctly blocked case, with traceable results |
+| M6: Generic cross-agent validation | Reviewed Graph fixture, pi/Copilot adapters, end-to-end tests | Native import confirmed without model execution; revoked or changed reviews cannot invoke a host |
 
 M0 is the go/no-go gate for the native-session promise. If it fails, explicitly narrow the demo to context handoff and readiness reporting rather than forging host session files.
 
@@ -413,4 +403,4 @@ Compare against manually sharing the same transcript/summary and adapting it in 
 - Full binary attachment/archive support, enterprise federation, public previews, and author-signing key infrastructure.
 - Additional host/provider integrations before the first two-host workflow is validated.
 
-Open implementation choices are the first supported hosts, the real Titan capability contract, and the remote deployment endpoint. These are engineering decisions to resolve through spikes, not mandatory source-agent questions in the customer flow.
+Open implementation choices include additional host adapters, optional domain-specific capability checks, and live Microsoft tenant deployment. These are engineering decisions to resolve through spikes, not mandatory source-agent questions in the customer flow.

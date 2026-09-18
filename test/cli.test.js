@@ -141,6 +141,40 @@ test('CLI preparation removes secrets and only publishes after trusted review ap
   assert.equal(disk.includes(secret), false);
 });
 
+test('native import target is selected during inspection and cannot be replaced at completion', { timeout: 120000 }, async t => {
+  const context = await setup(t);
+  const result = await runCli(context, ['inspect', context.link, '--target', 'pi', '--workspace', context.directory]);
+  assert.equal(result.code, 0, result.stderr);
+  const draft = JSON.parse(result.stdout);
+  assert.equal(draft.plannedRestoreMode, 'native_session');
+  assert.equal(draft.importTarget.target, 'pi');
+  assert.equal(draft.importTarget.workspace.path, await fs.realpath(context.directory));
+  await assertMissing(draft.importTarget.directory);
+  const changed = await runCli(context, ['resume', '--review', draft.reviewId, '--target', 'copilot', '--workspace', context.directory]);
+  assert.equal(changed.code, 1);
+  assert.match(changed.stderr, /Cannot change a reviewed import/);
+  const noninteractive = await runCli(context, ['resume', '--review', draft.reviewId]);
+  assert.equal(noninteractive.code, 1);
+  assert.match(noninteractive.stderr, /Interactive approval/);
+  await assertMissing(draft.importTarget.directory);
+});
+
+test('CLI auto-detects pi capture without weakening snapshot validation or publication approval', { timeout: 120000 }, async t => {
+  const context = await setup(t);
+  const input = path.resolve(__dirname, '..', 'fixtures', 'pi-coding-session.jsonl');
+  const prepared = await runCli(context, ['share', '--provider', 'local', '--input', input]);
+  assert.equal(prepared.code, 0, prepared.stderr);
+  const draft = JSON.parse(prepared.stdout);
+  const review = JSON.parse(await fs.readFile(draft.previewPath, 'utf8'));
+  assert.equal(review.plan.bundle.record.snapshot.source.host, 'pi');
+  assert.equal(review.plan.bundle.record.snapshot.capture, undefined);
+  assert.equal(review.plan.bundle.record.snapshot.source.capture.leafId, 'user0002');
+  assert.equal(JSON.stringify(review).includes('SYNTHETIC_ABANDONED'), false);
+  assert.equal(JSON.stringify(review).includes('SYNTHETIC_PRIVATE'), false);
+  const blocked = await runCli(context, ['share', '--review', draft.reviewId, '--approve']);
+  assert.equal(blocked.code, 1);
+});
+
 test('share --approve false cannot publish, and review parameters cannot be replaced', async (t) => {
   const context = await setup(t);
   const input = path.join(context.directory, 'input.json');

@@ -7,6 +7,7 @@ const MAX_EVENT_COUNT = 5000;
 const MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024;
 const MAX_TEXT_BYTES = 128 * 1024;
 const { containedPath } = require('./local-files');
+const { validateNextStep } = require('./requirements');
 
 class SecretDetectionError extends Error {
   constructor(paths) {
@@ -141,6 +142,8 @@ function validateSessionSnapshot(snapshot) {
   if (typeof snapshot.resume.nextAction !== 'string' || snapshot.resume.nextAction.length === 0) {
     invalid('resume.nextAction', 'expected a non-empty string');
   }
+
+  validateNextStep(snapshot.resume.nextStep);
 
   if (snapshot.files !== undefined) {
     if (!Array.isArray(snapshot.files) || snapshot.files.length > 20) invalid('files', 'maximum 20 text files');
