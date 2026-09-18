@@ -48,7 +48,8 @@ test('official MCP client exercises prepare -> human approval -> publish -> insp
   const { client, service, allow, prompts } = await start(t);
   const tools = await client.listTools();
   assert.deepEqual(tools.tools.map((tool) => tool.name),
-    ['session_prepare_publish', 'session_publish', 'session_inspect', 'session_assess', 'session_capabilities', 'session_clone', 'session_revoke', 'session_status']);
+    ['session_share', 'session_resume', 'session_prepare_publish', 'session_publish', 'session_inspect',
+      'session_assess', 'session_capabilities', 'session_clone', 'session_revoke', 'session_status']);
   const prepared = value(await client.callTool({
     name: 'session_prepare_publish', arguments: { snapshot: fixture, provider: 'local' },
   }));
@@ -77,6 +78,33 @@ test('official MCP client exercises prepare -> human approval -> publish -> insp
   assert.equal(replay.cloneId, imported.cloneId);
   assert.equal(await fs.readFile(imported.bundlePath, 'utf8'), original);
   assert.equal(prompts(), 3, 'a repeated import must not overwrite output or repeat the side effect');
+});
+
+test('one-call MCP share and resume hide review IDs but retain human confirmation', { timeout: 120000 }, async (t) => {
+  const { client, service, allow, prompts } = await start(t);
+  const cancelled = value(await client.callTool({
+    name: 'session_share', arguments: { snapshot: fixture, provider: 'local' },
+  }));
+  assert.equal(cancelled.status, 'cancelled');
+  assert.deepEqual(await fs.readdir(service.store.snapshotsDir), []);
+  allow();
+  const published = value(await client.callTool({ name: 'session_share', arguments: { snapshot: fixture, provider: 'local' } }));
+  const imported = value(await client.callTool({ name: 'session_resume', arguments: { link: published.link } }));
+  assert.equal(imported.status, 'context_imported');
+  assert.equal(imported.safety.toolsReplayed, false);
+  assert.equal(prompts(), 3);
+  const bypass = await client.callTool({ name: 'session_resume', arguments: { link: published.link, approval: true } });
+  assert.equal(bypass.isError, true);
+});
+
+test('one-call MCP writes without elicitation fail with a usable review ID for the terminal fallback', { timeout: 120000 }, async (t) => {
+  const { client, service } = await start(t, false);
+  const result = await client.callTool({ name: 'session_share', arguments: { snapshot: fixture, provider: 'local' } });
+  assert.equal(result.isError, true);
+  const details = JSON.parse(result.content[0].text);
+  assert.match(details.error, /trusted approval form/);
+  assert.match(details.review.reviewId, /^review_/);
+  assert.deepEqual(await fs.readdir(service.store.snapshotsDir), []);
 });
 
 test('MCP hosts without human elicitation cannot publish through a boolean or a review ID', { timeout: 120000 }, async (t) => {

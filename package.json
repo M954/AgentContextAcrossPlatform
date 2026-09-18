@@ -1,6 +1,6 @@
 {
   "name": "agent-context-across-platform",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "keywords": ["pi-package", "session-handoff", "onedrive"],
   "pi": { "extensions": ["./extensions/pi-session.ts"] },
   "peerDependencies": { "@earendil-works/pi-coding-agent": "*" },
@@ -8,6 +8,10 @@
   "private": true,
   "description": "Reviewed session bundles shared through OneDrive and SharePoint.",
   "type": "commonjs",
+  "bin": {
+    "agent-context": "src/cli.js",
+    "agent-context-mcp": "src/mcp-server.js"
+  },
   "engines": {
     "node": ">=20"
   },

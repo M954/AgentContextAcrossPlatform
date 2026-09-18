@@ -15,6 +15,7 @@ const { LocalProvider } = require('./local-provider');
 const { GraphProvider } = require('./graph-provider');
 const { summarizeSnapshot } = require('./mcp-support');
 const { stateFiles } = require('./config');
+const { renderPortable, recipientPrompt } = require('./portable');
 
 function normalizeRecipients(recipients) {
   if (!Array.isArray(recipients) || recipients.length > 20 ||
@@ -54,13 +55,17 @@ class HandoffWorkflow {
       expiresAt: review.expiresAt, previewPath: review.previewPath,
       action: review.plan.action, provider: review.plan.provider, summary: review.plan.summary,
       destination: review.plan.destination, recipients: review.plan.recipients,
+      ...(review.plan.format ? { format: review.plan.format } : {}),
       ...(review.plan.importTarget ? { importTarget: review.plan.importTarget } : {}),
       warning: 'Inspect the complete sanitized preview. Only a trusted confirmation form or interactive CLI can authorize this exact draft.',
     };
   }
 
   async preparePublish({ snapshot, sourceFile, leafId, provider = 'onedrive', recipients = [],
-    selectedFiles = [], workspaceRoot, priorRedactions = [] }) {
+    selectedFiles = [], workspaceRoot, priorRedactions = [], format = 'json' }) {
+    if (!['json', 'markdown'].includes(format) || (provider === 'local' && format !== 'json')) {
+      throw new Error('Choose markdown or json for OneDrive; the loopback test provider supports json only');
+    }
     if ((snapshot === undefined) === (sourceFile === undefined)) throw new Error('Provide exactly one normalized snapshot or selected sourceFile');
     let input = snapshot;
     let redactions = priorRedactions;
@@ -74,6 +79,7 @@ class HandoffWorkflow {
       input = await captureFiles(input, workspaceRoot, selectedFiles);
     }
     const bundle = createBundle(input, redactions);
+    if (format === 'markdown') renderPortable(bundle);
     const selected = normalizeRecipients(recipients);
     if (provider === 'onedrive' && !selected.length) throw new Error('Choose specific recipients before preparing a OneDrive share');
     if (provider === 'local' && selected.length) throw new Error('Local test transport cannot grant recipient access');
@@ -81,11 +87,33 @@ class HandoffWorkflow {
     const destination = await this.provider(provider).resolveDestination();
     await stateFiles.privateDirectory(this.stateDir);
     const review = await this.reviews.create({
-      action: 'publish', identity, configuration: this.fingerprint, provider,
+      action: 'publish', identity, configuration: this.fingerprint, provider, format,
       bundle, bundleDigest: contentHash(bundle), recipients: selected, destination,
       summary: summarizeSnapshot(bundle.record.snapshot, bundle.record.manifest.redactions),
     });
     return this.publicReview(review);
+  }
+
+  async finishDraft(draft, action, confirm) {
+    if (confirm === undefined) return draft;
+    try {
+      return await this.complete(draft.reviewId, action, confirm);
+    } catch (error) {
+      error.review = { reviewId: draft.reviewId, previewPath: draft.previewPath, action };
+      throw error;
+    }
+  }
+
+  async share(options, confirm) {
+    const draft = await this.preparePublish({
+      ...options, format: options.format === undefined ? (options.provider === 'local' ? 'json' : 'markdown') : options.format,
+    });
+    return this.finishDraft(draft, 'publish', confirm);
+  }
+
+  async resume(options, confirm) {
+    const draft = await this.inspect(options);
+    return this.finishDraft(draft, 'import', confirm);
   }
 
   async inspect({ link, provider, expectedDigest, target = 'document', workspaceRoot }) {
@@ -138,7 +166,8 @@ class HandoffWorkflow {
         verifyBundle(plan.bundle);
         if (contentHash(plan.bundle) !== plan.bundleDigest) throw new Error('Reviewed bundle changed');
         if (action === 'publish') {
-          const result = await this.provider(plan.provider).publish(plan.bundle, plan.destination, plan.recipients);
+          const result = await this.provider(plan.provider).publish(plan.bundle, plan.destination, plan.recipients,
+            { format: plan.format || 'json' });
           const publication = { ...result, identity: plan.identity, configuration: this.fingerprint };
           try {
             await writePrivateJson(path.join(this.stateDir, 'publications', `${result.snapshotId}.json`), publication);
@@ -148,7 +177,12 @@ class HandoffWorkflow {
               driveId: result.driveId, itemId: result.itemId };
             throw failure;
           }
-          return { status: 'published', ...result };
+          return { status: 'published', ...result,
+            ...(result.format === 'markdown' ? {
+              recipientPrompt: recipientPrompt(result.link),
+              recipientMode: 'portable_context',
+              recipientRequirements: 'No AgentContext installation for reading. Existing authorized link access or browser download, an agent, and human review are still required.',
+            } : {}) };
         }
         // Recheck access and contents rather than importing a cached file after revocation or replacement.
         const current = await this.provider(plan.provider).inspect(plan.link, plan.bundleDigest);

@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "agent-context",
-  "version": "0.3.0",
-  "description": "Share reviewed OneDrive/SharePoint bundles and approve context or native pi/Copilot import without replaying tools.",
+  "version": "0.4.0",
+  "description": "Share in one reviewed action; recipients read a portable handoff without this plugin, or choose reviewed native import.",
   "repository": "https://github.com/M954/AgentContextAcrossPlatform",
   "keywords": ["copilot", "session-handoff", "onedrive", "sharepoint", "mcp"]
 }

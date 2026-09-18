@@ -189,3 +189,22 @@ test('share --approve false cannot publish, and review parameters cannot be repl
   assert.match(changed.stderr, /Cannot change/);
   assert.deepEqual(await fs.readdir(context.service.store.snapshotsDir), before);
 });
+
+test('--prepare-only keeps share and resume read-only and cannot change an approved draft', async (t) => {
+  const context = await setup(t);
+  const input = path.join(context.directory, 'selected.json');
+  await fs.writeFile(input, JSON.stringify(fixture));
+  const count = (await fs.readdir(context.service.store.snapshotsDir)).length;
+  const prepared = await runCli(context, ['share', '--provider', 'local', '--input', input, '--prepare-only']);
+  assert.equal(prepared.code, 0, prepared.stderr);
+  const draft = JSON.parse(prepared.stdout);
+  assert.equal(draft.status, 'review-required');
+  assert.equal((await fs.readdir(context.service.store.snapshotsDir)).length, count);
+  const changed = await runCli(context, ['share', '--review', draft.reviewId, '--format', 'markdown']);
+  assert.equal(changed.code, 1);
+  assert.match(changed.stderr, /Cannot change a reviewed share/);
+  const inspected = await runCli(context, ['resume', context.link, '--prepare-only']);
+  assert.equal(inspected.code, 0, inspected.stderr);
+  assert.equal(JSON.parse(inspected.stdout).status, 'inspectable');
+  await assertMissing(path.join(context.stateDir, 'imports'));
+});

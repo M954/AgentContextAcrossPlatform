@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 'use strict';
 
 const path = require('node:path');
@@ -16,16 +17,20 @@ const HELP = `AgentContext (Node.js 20+)
   login | logout | status
   share --input <snapshot-or-export> --to <recipient> [--to <recipient>]
         [--leaf <pi-entry-id>] [--file <relative-text-file>] [--provider onedrive|local]
+        [--format markdown|json] [--prepare-only]
   share --review <review-id>
   inspect <OneDrive/SharePoint-link> [--expected-digest <sha256>]
           [--target document|pi|copilot] [--workspace <recipient-directory>]
   assess --review <review-id> [--requirements-reviewed]
   resume --review <review-id>
+  resume <OneDrive/SharePoint-link> [--target document|pi|copilot] [--workspace <directory>] [--prepare-only]
   doctor
   revoke <owned-snapshot-id>
   serve [--port 8787] [--data-dir .data]
 
-Share and resume require interactive confirmation; --approve/--yes are not supported.
+Interactive share/resume complete in one invocation, with human review inside the flow.
+Noninteractive calls or --prepare-only return a draft without writing remotely/importing.
+--approve/--yes are not supported. Quick OneDrive shares default to readable Markdown.
 Default import produces a context document. Native targets/workspaces must be chosen
 when inspecting, then approved as part of the exact import review. No model or historical tool runs.`;
 
@@ -49,6 +54,7 @@ async function main() {
   const { values: options, positionals } = parseArgs({
     args: process.argv.slice(3), allowPositionals: true, options: {
       input: { type: 'string' }, review: { type: 'string' }, provider: { type: 'string' },
+      format: { type: 'string' }, 'prepare-only': { type: 'boolean' },
       target: { type: 'string' }, workspace: { type: 'string' }, leaf: { type: 'string' },
       'requirements-reviewed': { type: 'boolean' },
       to: { type: 'string', multiple: true }, file: { type: 'string', multiple: true },
@@ -60,6 +66,10 @@ async function main() {
     },
   });
   if (!command || command === 'help' || command === '--help') { console.log(HELP); return; }
+  if (options.format && command !== 'share') throw new Error('--format applies only to share');
+  if (options['prepare-only'] && !['share', 'resume', 'clone'].includes(command)) {
+    throw new Error('--prepare-only applies only to share or resume');
+  }
   if (command === 'serve') {
     const app = await startServer({ host: options.host || '127.0.0.1',
       port: Number(options.port || 8787), dataDir: options['data-dir'] || path.join(process.cwd(), '.data') });
@@ -100,17 +110,20 @@ async function main() {
   }
   const workflow = new HandoffWorkflow({ config, stateDir, auth,
     localUrl: options['base-url'] || process.env.SESSION_SERVICE_URL });
+  const interactiveConfirm = process.stdin.isTTY === true && process.stdout.isTTY === true && !options['prepare-only']
+    ? confirm : undefined;
   let result;
   if (command === 'share') {
     if (options.review) {
-      if (options.input || options.to || options.file || options.provider || options.leaf || options.target || options.workspace || positionals.length) throw new Error('Cannot change a reviewed share; prepare a new draft');
+      if (options.input || options.to || options.file || options.provider || options.leaf || options.target ||
+          options.workspace || options.format || options['prepare-only'] || positionals.length) throw new Error('Cannot change a reviewed share; prepare a new draft');
       result = await workflow.complete(options.review, 'publish', confirm);
     } else {
       if (!options.input) throw new Error(HELP);
       if (options.target || options.workspace) throw new Error('Choose the recipient target/workspace during inspect, not publication');
-      result = await workflow.preparePublish({ sourceFile: options.input, leafId: options.leaf,
+      result = await workflow.share({ sourceFile: options.input, leafId: options.leaf,
         selectedFiles: options.file, workspaceRoot: process.cwd(), recipients: options.to,
-        provider: options.provider || 'onedrive' });
+        provider: options.provider || 'onedrive', format: options.format }, interactiveConfirm);
     }
   } else if (command === 'inspect') {
     if (!positionals[0]) throw new Error(HELP);
@@ -118,12 +131,15 @@ async function main() {
       target: options.target, workspaceRoot: options.workspace ? path.resolve(options.workspace) : undefined });
   } else if (command === 'resume' || command === 'clone') {
     if (options.review) {
-      if (positionals.length || options.target || options.workspace || options.provider || options.input || options.file || options['expected-digest'] || options.leaf) {
+      if (positionals.length || options.target || options.workspace || options.provider || options.input ||
+          options.file || options['expected-digest'] || options.leaf || options['prepare-only']) {
         throw new Error('Cannot change a reviewed import target or workspace; inspect again to create a new review');
       }
       result = await workflow.complete(options.review, 'import', confirm);
-    } else if (positionals[0]) result = await workflow.inspect({ link: positionals[0], provider: options.provider,
-      target: options.target, workspaceRoot: options.workspace ? path.resolve(options.workspace) : undefined });
+    } else if (positionals[0]) result = await workflow.resume({ link: positionals[0], provider: options.provider,
+      expectedDigest: options['expected-digest'], target: options.target,
+      workspaceRoot: options.workspace ? path.resolve(options.workspace)
+        : options.target && options.target !== 'document' ? process.cwd() : undefined }, interactiveConfirm);
     else throw new Error(HELP);
   } else if (command === 'assess') {
     if (!options.review || positionals.length || options.workspace || options.target || options.provider) {
@@ -138,7 +154,8 @@ async function main() {
 if (require.main === module) {
   main().catch((error) => {
     const message = error instanceof SyntaxError ? 'Input must be valid JSON; no input contents were logged' : error.message;
-    console.error(JSON.stringify({ error: message, ...(error.recovery ? { recovery: error.recovery } : {}) }));
+    console.error(JSON.stringify({ error: message, ...(error.recovery ? { recovery: error.recovery } : {}),
+      ...(error.review ? { review: error.review } : {}) }));
     process.exitCode = 1;
   });
 }

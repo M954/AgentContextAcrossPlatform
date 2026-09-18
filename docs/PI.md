@@ -19,20 +19,33 @@ Selected export or current pi branch
   -> isolated context files + optional native session
 ```
 
-`session_clone` and CLI `resume --review` take a review ID, not an approval boolean or a replacement target. Changing the target, workspace, account, configuration, or relevant host binding requires a fresh review. A cancelled or failed attempt never grants execution permission.
+Quick `session_share` / `session_resume` operations manage review IDs internally. Advanced `session_clone` and CLI `resume --review` still take a review ID, never an approval boolean or replacement target. Changing the target, workspace, account, configuration, or relevant host binding requires a fresh review. Cancellation or failure never grants execution permission.
 
-## CLI: Choose the Target During Inspect
+## Quick CLI: One Action with Review Inside
+
+After setup, an interactive share or resume completes within one invocation:
+
+```powershell
+node src\cli.js share --input <conversation-export> --to teammate@contoso.com
+node src\cli.js resume "<sharing-link>" --target pi --workspace C:\my-project
+```
+
+Quick OneDrive sharing produces portable Markdown and a recipient prompt. Reading that document needs no AgentContext installation when the recipient already has authorized file access; browser download and attachment remain the fallback. This reader route is separate from validated native import.
+
+Human approval and all destination checks remain mandatory. Noninteractive invocations and `--prepare-only` only prepare a draft. To inspect/assess separately, use the staged path below.
+
+## Advanced CLI: Choose the Target During Inspect
 
 Configure and sign in using the [OneDrive setup](../README.md#onedrivesharepoint-setup). Then:
 
 ```powershell
 # Source format is detected; no source-agent argument is needed.
-node src/cli.js share --input <conversation-export> --to teammate@contoso.com
-node src/cli.js share --review <publish-review-id>
+node src\cli.js share --input <conversation-export> --to teammate@contoso.com --prepare-only
+node src\cli.js share --review <publish-review-id>
 
 # Recipient chooses pi or copilot BEFORE approving the import:
-node src/cli.js inspect "<sharing-link>" --target pi --workspace C:\my-project
-node src/cli.js resume --review <import-review-id>
+node src\cli.js inspect "<sharing-link>" --target pi --workspace C:\my-project
+node src\cli.js resume --review <import-review-id>
 ```
 
 For Copilot use `--target copilot`. Omit `--target` for the default context-document path. Adding `--target`, `--workspace`, or an output override to `resume --review` is rejected rather than silently changing a reviewed action.
@@ -72,7 +85,7 @@ With no arguments, the extension asks for explicit recipient emails. It:
 6. Shows the exact draft and requires confirmation through pi's UI.
 7. Checks that the source session/leaf did not change during review, then calls `HandoffWorkflow.complete`.
 
-`/ac-share --local` is available only for synthetic loopback testing and cannot grant named-recipient access. OneDrive is the normal path.
+`/ac-share` uses portable Markdown for OneDrive and displays a ready-to-paste recipient prompt. `/ac-share --local` retains JSON for synthetic loopback testing and cannot grant named-recipient access. OneDrive is the normal path.
 
 ### Import and Switch
 

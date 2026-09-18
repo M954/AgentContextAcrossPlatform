@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 'use strict';
 
 const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
@@ -9,20 +10,26 @@ const { createGraphAuth } = require('./graph-auth');
 const { HandoffWorkflow } = require('./workflow');
 const { getPiCapabilities } = require('./hosts/pi');
 const { getCopilotCapabilities } = require('./hosts/copilot');
+const { version } = require('../package.json');
 
 const snapshot = z.record(z.string(), z.unknown());
 const provider = z.enum(['onedrive', 'local']);
 const reviewId = z.string().regex(/^review_[a-f0-9]{32}$/);
+const format = z.enum(['markdown', 'json']);
+const shareInput = z.object({ snapshot: snapshot.optional(), sourceFile: z.string().max(4096).optional(),
+  leafId: z.string().max(128).optional(), provider: provider.optional(), format: format.optional(),
+  recipients: z.array(z.string()).max(20).optional() }).strict();
+const resumeInput = z.object({ link: z.string().max(8192), provider: provider.optional(),
+  expectedDigest: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+  target: z.enum(['document', 'pi', 'copilot']).optional(), workspaceRoot: z.string().max(4096).optional() }).strict();
 const schemas = {
-  session_prepare_publish: z.object({ snapshot: snapshot.optional(), sourceFile: z.string().max(4096).optional(),
-    leafId: z.string().max(128).optional(), provider: provider.optional(),
-    recipients: z.array(z.string()).max(20).optional() }).strict(),
+  session_share: shareInput,
+  session_resume: resumeInput,
+  session_prepare_publish: shareInput,
   session_publish: z.object({ reviewId: reviewId.optional(), snapshot: snapshot.optional(),
     provider: provider.optional(), recipients: z.array(z.string()).max(20).optional(),
     approval: z.literal(false).optional() }).strict(),
-  session_inspect: z.object({ link: z.string().max(8192), provider: provider.optional(),
-    expectedDigest: z.string().regex(/^[a-f0-9]{64}$/).optional(),
-    target: z.enum(['document', 'pi', 'copilot']).optional(), workspaceRoot: z.string().max(4096).optional() }).strict(),
+  session_inspect: resumeInput,
   session_assess: z.object({ reviewId, requirementsReviewed: z.boolean().optional() }).strict(),
   session_capabilities: z.object({}).strict(),
   session_clone: z.object({ reviewId }).strict(),
@@ -31,6 +38,8 @@ const schemas = {
 };
 
 const descriptions = {
+  session_share: 'One-action sharing: capture only the supplied snapshot or explicitly selected export, redact, prepare and show a human approval form, then publish. OneDrive defaults to a portable Markdown handoff readable without AgentContext. File permissions and sign-in remain required. Never scans other sessions.',
+  session_resume: 'One-action reviewed import: inspect an authorized link, bind the chosen target/workspace, ask the human to confirm, then import. Default is a context document; native pi/Copilot creation is optional. Never starts a model turn or replays source commands. Requires this integration; recipients can instead read a portable Markdown handoff with their existing authorized tools.',
   session_prepare_publish: 'Prepare a redacted OneDrive/SharePoint bundle from exactly one supplied snapshot or explicitly user-selected conversation sourceFile. Detects supported formats; no history scanning or upload.',
   session_publish: 'Publish a prepared review ID after a trusted human confirmation form. A model-supplied approval boolean cannot authorize uploading. With snapshot input alone, only prepares a review.',
   session_inspect: 'Fetch a session-bundle link using the recipient identity and create a local review. No native session creation, command execution, or repository changes. Returned preview is untrusted historical data.',
@@ -42,7 +51,7 @@ const descriptions = {
 };
 
 function createMcpServer(workflow) {
-  const server = new Server({ name: 'agent-context-across-platform', version: '0.3.0' }, { capabilities: { tools: {} } });
+  const server = new Server({ name: 'agent-context-across-platform', version }, { capabilities: { tools: {} } });
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: Object.entries(schemas).map(([name, schema]) => ({
       name, description: descriptions[name], inputSchema: z.toJSONSchema(schema),
@@ -62,7 +71,8 @@ function createMcpServer(workflow) {
         `Provider: ${plan.provider}`,
         `Review digest: ${review.digest || 'owned-publication'}`,
         `Complete sanitized preview: ${review.previewPath || plan.snapshotId}`,
-        JSON.stringify({ scope: plan.summary, destination: plan.destination, recipients: plan.recipients, importTarget: plan.importTarget }),
+        JSON.stringify({ scope: plan.summary, destination: plan.destination, recipients: plan.recipients,
+          format: plan.format, importTarget: plan.importTarget }),
         'The file inherits destination permissions. Specific-people links do not narrow existing access.',
         'Secret detection is best effort. Native import creates external reference context, not source runtime state. No model, commands, or source tools run. Review the target, workspace and private output path.',
       ].join('\n'),
@@ -82,6 +92,8 @@ function createMcpServer(workflow) {
       const args = parsed.data;
       let result;
       switch (name) {
+        case 'session_share': result = await workflow.share(args, confirm); break;
+        case 'session_resume': result = await workflow.resume(args, confirm); break;
         case 'session_prepare_publish': result = await workflow.preparePublish(args); break;
         case 'session_publish':
           if (args.reviewId) {
@@ -101,6 +113,8 @@ function createMcpServer(workflow) {
             restoreMode: 'context_document', executionReadiness: 'not_assessed',
             nativeSessionCapture: 'pi extension only; other sources require selected exports',
             supportedImportTargets: ['document', 'pi', 'copilot'], nativeAvailability: 'not probed by status; use session_capabilities',
+            quickActions: ['session_share', 'session_resume'],
+            portableRecipientMode: 'Read Markdown with existing authorized tools; no AgentContext installation needed for context reading',
             authentication: 'delegated-user; interactive login required outside model tools',
             authorization: 'trusted form or interactive CLI; model booleans are rejected',
             stateDirectory: workflow.stateDir };
@@ -110,6 +124,7 @@ function createMcpServer(workflow) {
     } catch (error) {
       return { isError: true, content: [{ type: 'text', text: JSON.stringify({
         error: error.message, ...(error.recovery ? { recovery: error.recovery } : {}),
+        ...(error.review ? { review: error.review } : {}),
       }) }] };
     }
   });

@@ -1,21 +1,25 @@
 # Current Workflow, User Experience, and Remaining Gaps
 
-> Implementation: v0.3.0 integration, retaining the reviewed OneDrive workflow from `3cb7bd7`.
+> Implementation: v0.4.0 simplified UX, retaining the v0.3 reviewed native pi/Copilot integration.
 > This describes implemented behavior, not full environment restoration or live tenant acceptance.
 
-**Today: reviewed OneDrive/SharePoint handoff with document or native pi/Copilot destinations.**
-**Target: share directly from a live agent session and let another person continue in a supported local agent.**
+**Recommended path: the sender uses one share action; the recipient reads a portable handoff with an existing authorized agent, without installing AgentContext.**
+**Target: one-time sender installation, one share command, one recipient prompt with no additional product setup.**
 
-The default `resume`/`session_clone` output is a context document and supporting files. A native target selected during inspection can also create a pi or Copilot session after the same human approval and rechecks. Native sessions contain external reference context; no model turn or historical tool is run. See [pi/native integration](PI.md).
+The quick share produces readable Markdown containing the complete bundle, plus a ready-to-paste `recipientPrompt`. If the recipient's existing agent can already authenticate and fetch the file, that prompt starts context continuation. Otherwise, browser sign-in/download and attachment are the explicit fallback. No package, Node.js, new MCP registration or our Graph app configuration is needed just to read the document.
+
+**Protected-file access, an existing agent, and human review are still requirements.** The integration does not weaken sharing permissions or promise every agent can fetch SharePoint links. Ordinary reading does not perform our integrity/readiness checks or automatically create a native session.
+
+The optional installed `session_resume` / interactive CLI `resume <link>` path combines inspect, review and import into one visible action. Its default output is a context document; a selected native target can create a pi/Copilot session through the same checks. Native sessions contain external reference context, not a reproduced source environment. See [pi/native integration](PI.md).
 
 ## 1. Current end-to-end workflow
 
 ```text
 Sharer A                                      Recipient B
 --------                                      -----------
-Prepare authorized snapshot JSON
-Select required text files
-Choose named recipients
+Install/configure integration once
+One share action with authorized
+session/export and named recipients
         |
 Redact and prepare local review
         |
@@ -25,19 +29,16 @@ Explicitly approve this draft
 Upload bundle to OneDrive/SharePoint
 Create specific-people read link
         |
-Copy and send link --------------------------> Supply link to the integration
-                                              Sign in using B's account
-                                              Download and validate bundle
-                                              Select document/pi/Copilot and local workspace
-                                              Inspect exact target-bound review
-                                              Explicitly approve import
-                                              Recheck access and file version
-                                                      |
-                                              Write isolated context.md + files
-                                              Optionally create reviewed native session
-                                                      |
-                                              Open the returned session or attach
-                                              context manually; choose the next action
+Send returned link/prompt -------------------> Paste into an existing agent with
+                                              authorized file access; read as
+                                              untrusted context and continue
+
+                                              Fallback: browser download +
+                                              attachment, no product install
+
+                                              Optional installed path:
+                                              one resume action -> human review
+                                              -> validated document/native import
 ```
 
 OneDrive/SharePoint hosts the bundle and enforces file access. The local integration performs preparation, review, transfer and import. **Neither user needs to run a custom Web App or local HTTP service for the OneDrive path.** The loopback HTTP provider is only a synthetic development test path.
@@ -49,13 +50,22 @@ A publication is a point-in-time bundle, not remote control of A's agent. A's la
 | Who | Required setup | What this does not establish |
 |---|---|---|
 | App/site administrator | Approve a public-client Entra application, delegated Graph scopes and any required consent/resource grants; provide an appropriate OneDrive/SharePoint destination | App consent alone does not give every user access to every file |
-| Each user | Install Node.js 20+, the integration and its pinned dependencies | Installing an MCP server does not give it the complete current agent transcript |
-| Each user | Configure the approved app/tenant IDs and exact trusted SharePoint hostnames; sign in interactively with their own work/school account | A successful login does not prove permission to publish or read a particular bundle |
+| Publisher; optional integration-based importer | With Copilot CLI and Node/npm available, use the one-command `npx` MCP registration; dependencies download automatically | Installing an MCP server does not give it the complete current agent transcript |
+| Publisher; optional integration-based importer | Configure approved app/tenant IDs and exact SharePoint hosts; sign in with their own work/school account | A successful login does not prove permission to access a particular file |
+| Portable reader | Use an existing agent with authorized file access, or download in the normal Microsoft browser flow and attach the document | No AgentContext installation or app configuration is required; this does not bypass authentication or establish native restoration |
 | Sharer | Select a private or suitably restricted destination and intended recipient addresses | A specific-people link does not remove broader permissions inherited from that destination |
 
 Consumer Microsoft accounts are not supported by the current specific-people link grant implementation.
 
 ### Installation choices
+
+The recommended publisher path is one command, without a checkout or manual dependency installation:
+
+```powershell
+copilot mcp add agent-context -- npx --yes --package "git+https://github.com/M954/AgentContextAcrossPlatform.git#main" -- agent-context-mcp
+```
+
+For a managed deployment use a reviewed commit/tag instead of the development branch. This registers MCP tools, not the optional skill. `npx --yes` authorizes dependency download/installation only; it is not a handoff approval. Node/npm, Copilot CLI, repository access and the approved Microsoft app profile remain publisher prerequisites.
 
 For a checkout, run `npm ci` in the repository, then register the MCP process:
 
@@ -69,13 +79,13 @@ Alternatively, install the plugin inside Copilot:
 /plugin install M954/AgentContextAcrossPlatform
 ```
 
-**The plugin command downloads/registers the package; it is not yet complete zero-touch onboarding.** Run `npm ci` once in the installed plugin root with user approval, then reload/restart the integration. The plugin includes the `session-handoff` skill. A manual checkout exposes the project skill when working in that repository.
+The optional full-plugin route still requires `npm ci` in its installed root. The recommended `npx` route removes that manual dependency step. Neither route removes tenant approval, app configuration or human Microsoft sign-in. A managed app profile and distribution for publishers without Node/npm remain gaps; do not move them onto portable readers.
 
 Choose one registration route rather than configuring duplicate copies of the same server. There is no installation per session or per sharing link.
 
-### Microsoft sign-in
+### Microsoft sign-in for the publisher/optional importer
 
-The commands below run from the checkout or installed plugin root. Replace placeholders with approved values and use the actual hostnames for your tenant:
+The commands below run from a checkout/plugin root. On the no-checkout route, replace `node src\cli.js` with `npx --yes --package "<same-reviewed-package-ref>" -- agent-context`. Replace placeholders with approved values and actual tenant hostnames:
 
 ```powershell
 node src\cli.js configure --client-id <app-id> --tenant-id <tenant-id> --sharepoint-host contoso-my.sharepoint.com --sharepoint-host contoso.sharepoint.com
@@ -108,7 +118,9 @@ node src\cli.js share --input <snapshot.json> --to teammate@contoso.com --file q
 
 `--file` is optional and repeatable; paths are relative to the current working directory. Repeat `--to` for multiple named recipients. The current bounds include 20 selected text files/attachments, 5,000 events, 128 KiB per text value, and a 2 MiB normalized snapshot. Unsupported binary files and oversized input are rejected, not silently included or truncated.
 
-This operation redacts locally, reads the configured destination metadata through Graph, and writes a private review draft. **It does not upload the bundle or grant recipients access.** The user receives:
+In an interactive terminal, the same command prepares the sanitized draft, displays the review, obtains typed confirmation and publishes. Quick OneDrive sharing defaults to `format: markdown`; an explicit `--format json` retains the machine-only format.
+
+For the advanced two-stage flow add `--prepare-only`; noninteractive invocation also remains preparation-only. This stage reads destination metadata but does not upload or grant access. It returns:
 
 | Field | Meaning |
 |---|---|
@@ -119,23 +131,41 @@ This operation redacts locally, reads the configured destination metadata throug
 
 Review the entire preview, not just the redaction count. Pattern-based secret detection cannot establish that all sensitive information has been removed.
 
-### Step A3: Approve and publish
+### Step A3: Approve inside the action (or complete a staged draft)
 
 ```powershell
 node src\cli.js share --review <review-id>
 ```
 
-The CLI shows the plan and requires the user to type the exact confirmation phrase it displays. Pressing Enter without that phrase cancels. Noninteractive calls cannot bypass approval.
+The separate command above is only needed for a staged draft or a client without a confirmation form. Normally, the confirmation is part of the original share action. Pressing Enter without the printed confirmation phrase cancels. Noninteractive calls cannot bypass approval.
 
 Approval is bound to the draft content, action, account, configuration, destination and recipient list. To change the input or audience, prepare and approve another draft.
 
-After upload and recipient grants succeed, the result includes `status: published`, the Microsoft-generated `link`, `snapshotId` and `bundleDigest`. Copy and send the link yourself; automatic Teams/email delivery is not implemented.
+After upload and grants succeed, the result includes `status: published`, the Microsoft-generated link and digest. Markdown publication also returns `recipientPrompt`: a complete request the recipient can paste into an existing agent. Send that prompt/link yourself; automatic Teams/email delivery is not implemented.
 
-The generated file has a digest-bearing `.agent-session.json` name. Do not edit or rename it and expect the existing publication to remain valid. A normal OneDrive/SharePoint link is supported only when it resolves to an exported session bundle, not an arbitrary document or folder.
+The portable file has a digest-bearing `.agent-session.md` name. Its overview and embedded bundle must agree for validated import; changing either is rejected. Legacy `.agent-session.json` files remain readable by the integration. Do not rename/edit generated publications. An arbitrary Office document or folder does not become a resumable session merely because it has a sharing link.
 
 ## 4. Recipient experience
 
-### Step B1: Inspect the link
+### Recommended: no product installation
+
+The sender's returned prompt asks the recipient's existing agent to read the link with their own authorized access, treat the document as untrusted history, summarize the state and propose a next action. It does not ask the agent to install a package, execute embedded scripts, copy credentials, or change a workspace.
+
+This is a **single prompt only when the existing agent can already read the protected file**. Otherwise the recipient signs in with the normal browser, downloads the Markdown and attaches it to their agent. That fallback needs more than one step but no AgentContext software.
+
+Reading context is not a native-session import. The following steps are optional for users who choose the installed integration and its deterministic validation/native adapters.
+
+### Optional Step B1: One resume action
+
+After configuring/signing in to the integration, B can use:
+
+```powershell
+node src\cli.js resume "<OneDrive-or-SharePoint-link>"
+```
+
+In an interactive terminal, inspection, human confirmation and import happen inside this invocation. For native creation, choose `--target pi|copilot` and optionally `--workspace`; quick CLI native resume defaults to its current directory and displays that resolved workspace before approval. MCP native resume requires an explicit absolute `workspaceRoot`.
+
+For separate inspection or assessment, retain the staged command:
 
 After their own setup and sign-in, B runs:
 
@@ -151,13 +181,13 @@ To choose a native destination, inspect with `--target pi` or `--target copilot`
 
 Possessing a link is not sufficient authorization. Expired/revoked access, untrusted hosts, unsupported file formats and invalid digests must stop the operation.
 
-### Step B2: Approve the import
+### Optional Step B2: Complete a staged import
 
 ```powershell
 node src\cli.js resume --review <recipient-review-id>
 ```
 
-The user reviews and confirms the exact import. Before writing, the integration rechecks remote access, content and version rather than relying only on a cached download. A new import is written to a separate directory:
+Normal quick resume does not require the user to copy a review ID. The staged command above uses the same human review. Before writing, the integration rechecks remote access, content and version rather than relying only on cached data. A new import is written separately:
 
 ```text
 <private-state-directory>
@@ -205,6 +235,8 @@ Use the `session-handoff` skill and ordinary chat requests after registration. T
 
 | User request | Internal operation | What the user sees |
 |---|---|---|
+| "Share this authorized session/export with this recipient." | `session_share` | Review/approval inside the action, then a portable link and recipient prompt; no manual review-ID handling |
+| "Resume from this link." | `session_resume` with the selected target/workspace if native | Inspect, confirm and import inside one action; no automatic model turn |
 | "Prepare a OneDrive share of this authorized snapshot/export for this recipient." | `session_prepare_publish` with exactly one snapshot or selected sourceFile | Draft summary, destination, recipients, omissions and preview path; no upload |
 | "Publish the reviewed draft." | `session_publish` with `reviewId` | A separate human approval form, then a link on success |
 | "Inspect this link for import into pi in my workspace." | `session_inspect` with optional target/workspaceRoot | Recipient preview binds the destination; no native creation or execution |
@@ -216,7 +248,7 @@ Use the `session-handoff` skill and ordinary chat requests after registration. T
 
 There are two permission boundaries: Copilot's permission to invoke a tool and the integration's approval of the exact publish/import action. Neither replaces the other. A chat statement alone or a model-supplied `approval: true` cannot authorize the write.
 
-If the host supports MCP elicitation, it displays the human confirmation form. Otherwise the action is blocked and the user must run the corresponding `--review` command in their own terminal, with the same private state directory/account/configuration. Do not automate typing the approval phrase.
+If the host supports MCP elicitation, it displays the human confirmation form. Otherwise the quick action is blocked and its error returns the saved review ID for the terminal fallback. Do not automate typing approval. The advanced prepare/inspect/complete tools remain for explicit staged use, not the default customer journey.
 
 **No custom `/session share` or `/session resume` commands are registered.** Copilot's built-in session commands are not this project's bundle importer. The old `--approve`, `--yes` and arbitrary `--output` import paths are not supported.
 
@@ -244,7 +276,7 @@ Local reviews, receipts, bundles and context documents persist in the private st
 
 The evidence includes the original local REST/CLI tests, MCP human-form protocol tests, synthetic Graph sender/recipient/denied-user cases, Windows native cache encryption, and Copilot plugin discovery. The integration adds target/workspace tampering and replay tests, actual pi extension UI/lifecycle tests, and synthetic-Graph demos with real pi/Copilot native creation.
 
-These do **not** demonstrate a live Microsoft tenant round trip, every production client UI, full live Copilot capture, or completion of the shared task. Source histories and Graph responses in demos are synthetic; native destination processes are real. No model turn is invoked.
+The simplified flow adds single-action approval tests, portable Markdown/JSON round trips, and checks that edited prose cannot disagree with the embedded data. These do **not** demonstrate live Microsoft tenant sharing, universal protected-link reading, every client UI, full live Copilot capture or task completion. Fixtures/native test processes are not evidence of a universally setup-free receiver.
 
 ### Remaining gaps
 
@@ -253,7 +285,8 @@ These do **not** demonstrate a live Microsoft tenant round trip, every productio
 | P0 | Live OneDrive/SharePoint acceptance is unverified | A publishes a synthetic bundle, B downloads with B's account, and C without independent/inherited access is denied; exercise changed/revoked content and the real UI | Approved Entra app/consent, restricted test destination, and tester accounts |
 | P1 | Live capture is pi-only | Extend supported capture to other hosts; keep bounded selection, omissions, and branch isolation | pi extension is implemented and tested; other sources use exports |
 | P1 | Native targets are pi/Copilot only; no exact source-state replay | Validate additional hosts/versions and retain document fallback | Official pi APIs and Copilot importer have local integration coverage; not an environment clone |
-| P1 | Installation/sign-in is not a one-step customer experience | Add guided, user-approved bootstrap, configuration and sign-in; exercise a fresh GitHub plugin install and confirmation UI, not just local plugin discovery | Plugin/onboarding engineering and approved app configuration |
+| P0 for fully zero-touch onboarding | One-command MCP registration is implemented, but publisher app configuration/sign-in and Node/npm remain | Ship an operator-approved app profile and, if needed, a bundled runtime; validate fresh install-to-live-share on a clean machine | Tenant/app approval and distribution work; not something portable readers should configure |
+| P1 | No universally setup-free protected-link reader | Validate existing authenticated connectors; retain browser-download/attachment fallback, never anonymous sharing or automatic installers | Recipient file access and host capability; Markdown reading alone is not native restoration |
 | P1 | Readiness is limited to passive runtime/file checks | Add verified domain/tool/data adapters; unknowns must not become ready | Current reports are advisory, use the bound workspace, and cannot authorize execution |
 | P1 | Lifecycle/recovery UX is minimal | Add publication/review history, safe cleanup/retention, explicit expiration controls and clearer partial-failure recovery | Local state and provider lifecycle work; do not promise recall of downloaded copies |
 | P2 | File size/type and platform support are limited | Validate additional OS/client combinations and adapters; extend large/binary attachments only with explicit scope and safety controls | Current release is bounded text, Copilot-facing, and work/school Microsoft accounts only |
@@ -269,6 +302,7 @@ Describe the product as **reviewed context handoff with optional native session 
 | CLI commands and typed confirmation | [cli.js](../src/cli.js) |
 | Copilot tool schemas and human elicitation | [mcp-server.js](../src/mcp-server.js), [packaged skill](../skills/session-handoff/SKILL.md) |
 | Snapshot/file bounds and redaction | [snapshot.js](../src/snapshot.js), [bundle.js](../src/bundle.js) |
+| No-addon portable reading and prose/data consistency | [portable.js](../src/portable.js), [portable tests](../test/portable.test.js) |
 | Review lifetime, binding and duplicate-attempt handling | [reviews.js](../src/reviews.js) |
 | Share, inspect and reviewed document/native import | [workflow.js](../src/workflow.js) |
 | Native destination binding and adapters | [destination.js](../src/hosts/destination.js), [pi guide](PI.md) |

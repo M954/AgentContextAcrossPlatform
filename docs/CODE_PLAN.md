@@ -6,6 +6,8 @@
 
 Implementation update: v0.3.0 retains OneDrive/SharePoint transport, delegated MSAL authentication, content-bound human reviews and official MCP tools. It adds pi live capture, selected export parsing, advisory readiness, and native pi/Copilot import after exact target/workspace review and remote access/version rechecks. No boolean approval bypass or custom production sharing server is restored. See [PI.md](PI.md) and [READINESS.md](READINESS.md). Live tenant acceptance and general environment compatibility remain unverified.
 
+v0.4.0 adds `session_share` / `session_resume` quick actions, `npx`-launchable CLI/MCP bins for one-command registration, and portable Markdown for no-addon recipient reading. Existing staged operations and native-import checks remain; simplifying visible commands does not merge consent with execution. A managed publisher app profile and optional bundled runtime remain setup priorities, while recipients should use an existing authorized reader rather than being required to install this integration.
+
 ## 1. Implementation Target
 
 Build one end-to-end workflow:

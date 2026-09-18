@@ -64,7 +64,7 @@ export default function (pi: ExtensionAPI) {
       const recipients = selected.split(/[,\s]+/).filter(Boolean);
       const flow = await workflow();
       const draft = await flow.preparePublish({ snapshot: prepared.snapshot, priorRedactions: prepared.redactions,
-        provider: local ? 'local' : 'onedrive', recipients });
+        provider: local ? 'local' : 'onedrive', format: local ? 'json' : 'markdown', recipients });
       ctx.ui.notify(`Prepared review ${draft.reviewId}. Preview: ${draft.previewPath}`, 'info');
       const result = await flow.complete(draft.reviewId, 'publish', async (review: any) => {
         const approved = await approveReview(ctx, review);
@@ -75,6 +75,7 @@ export default function (pi: ExtensionAPI) {
       });
       if (result.status === 'cancelled') { ctx.ui.notify('Publication cancelled; nothing uploaded.', 'info'); return; }
       ctx.ui.notify(`Shared: ${result.link}`, 'info');
+      if (result.recipientPrompt) ctx.ui.notify(`Recipient can paste into an existing authorized agent:\n${result.recipientPrompt}`, 'info');
       pi.appendEntry('agent-context-share', { snapshotId: result.snapshotId, link: result.link, reviewId: draft.reviewId });
     }),
   });

@@ -1,6 +1,6 @@
 # AgentContextAcrossPlatform - Remote Session Clone Project Plan
 
-> Status: v0.3.0 integration. Reviewed OneDrive/SharePoint transport now includes live pi branch capture, selected-file format detection, target-bound native pi/Copilot import and advisory readiness checks. The loopback provider remains test-only. See [native integration](PI.md) and [readiness](READINESS.md).
+> Status: v0.4.0 customer simplification. One-action share/resume now wrap review and human approval; quick shares produce readable Markdown for recipients without this plugin. Reviewed native pi/Copilot import, live pi capture and advisory readiness are retained. Protected-file access and publisher onboarding still apply. See [current UX and gaps](WORKFLOW_AND_GAPS.md).
 > This plan defines the new primary goal: publish a resumable agent-session snapshot to a remote location and let another user clone it into their local agent.
 >
 > The previous knowledge-handoff plan is preserved in [KNOWLEDGE_HANDOFF_PLAN.md](KNOWLEDGE_HANDOFF_PLAN.md).
@@ -10,6 +10,8 @@
 The loopback provider is for synthetic local testing only and has no authentication. The OneDrive provider uses delegated Microsoft authentication and provider-managed file permissions. Its protocol is exercised with synthetic Graph fixtures; tenant-specific consent and live two-user sharing remain deployment gates. Native pi/Copilot creation and the live pi extension have local host integration coverage, not a claim of environment equivalence. See the README for the implemented CLI and supported limits.
 
 ## 1. Product Definition
+
+The preferred customer contract is asymmetric: a publisher registers the self-installing MCP package once and invokes one share action; a recipient pastes the returned prompt into an existing authorized agent without installing this product. Portable Markdown enables context reading today. If the host cannot fetch the protected link, browser download and attachment remain necessary. Do not redefine this as anonymous access or guaranteed zero-setup native restoration. A managed publisher app profile and removal of the Node/npm prerequisite remain unfinished work.
 
 AgentContextAcrossPlatform is an MCP/tool integration for creating a portable, remote version of an active coding-agent session.
 

@@ -1,7 +1,8 @@
 'use strict';
 
-const { MAX_BUNDLE_BYTES, parseBundle, verifyBundle } = require('./bundle');
-const { canonicalJson, contentHash } = require('./snapshot');
+const { MAX_BUNDLE_BYTES, verifyBundle } = require('./bundle');
+const { contentHash } = require('./snapshot');
+const { MAX_SHARED_FILE_BYTES, serializeSharedBundle, parseSharedBundle } = require('./portable');
 
 const GRAPH = 'https://graph.microsoft.com/v1.0';
 const TIMEOUT_MS = 30000;
@@ -143,19 +144,20 @@ class GraphProvider {
       webUrl: sharingUrl(folder.webUrl, this.config) };
   }
 
-  async publish(bundle, destination, recipients) {
+  async publish(bundle, destination, recipients, { format = 'json' } = {}) {
     verifyBundle(bundle);
     if (!Array.isArray(recipients) || !recipients.length || recipients.length > 20 ||
         recipients.some((recipient) => typeof recipient !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient))) {
       throw new Error('Choose between 1 and 20 explicit recipient email addresses');
     }
-    const fileName = `${bundle.record.manifest.snapshotId}.${contentHash(bundle)}.agent-session.json`;
+    const bytes = serializeSharedBundle(bundle, format);
+    const suffix = format === 'markdown' ? 'md' : 'json';
+    const fileName = `${bundle.record.manifest.snapshotId}.${contentHash(bundle)}.agent-session.${suffix}`;
     const itemRoot = `/drives/${id(destination.driveId)}/items`;
     const upload = await this.request(`${itemRoot}/${id(destination.folderId)}:/${fileName}:/createUploadSession`, {
       method: 'POST', body: { item: { name: fileName, '@microsoft.graph.conflictBehavior': 'fail' } },
     });
     const uploadUrl = transferUrl(upload.uploadUrl, this.config);
-    const bytes = Buffer.from(canonicalJson(bundle));
     let item;
     try {
       const uploaded = await this.fetchResponse(uploadUrl, {
@@ -183,7 +185,7 @@ class GraphProvider {
       const link = readLink(updated, this.config);
       id(updated.id);
       return {
-        provider: 'onedrive', link, snapshotId: bundle.record.manifest.snapshotId,
+        provider: 'onedrive', format, link, snapshotId: bundle.record.manifest.snapshotId,
         bundleDigest: contentHash(bundle), driveId: destination.driveId, itemId: item.id,
         permissionId: updated.id, recipients, fileName, eTag: item.eTag || null,
         warning: 'Specific-people sharing does not remove inherited destination access. Downloaded copies cannot be revoked.',
@@ -208,10 +210,10 @@ class GraphProvider {
   async inspect(link, expectedDigest) {
     const validLink = sharingUrl(link, this.config);
     const item = await this.request(`/shares/${sharingToken(validLink)}/driveItem?$select=id,name,size,file,folder,parentReference,eTag`);
-    if (!item.file || item.folder || !Number.isSafeInteger(item.size) || item.size > MAX_BUNDLE_BYTES) {
+    if (!item.file || item.folder || !Number.isSafeInteger(item.size) || item.size < 1 || item.size > MAX_SHARED_FILE_BYTES) {
       throw new Error('The shared item must be a bounded session-bundle file, not a folder');
     }
-    const match = /^snap_[a-z0-9]+_[a-f0-9]+\.([a-f0-9]{64})\.agent-session\.json$/.exec(item.name || '');
+    const match = /^snap_[a-z0-9]+_[a-f0-9]+\.([a-f0-9]{64})\.agent-session\.(json|md)$/.exec(item.name || '');
     if (!match) throw new Error('The link is not an exported AgentContext session bundle');
     const token = await this.auth.getAccessToken();
     const response = await this.fetchResponse(`${GRAPH}/drives/${id(item.parentReference?.driveId)}/items/${id(item.id)}/content`, {
@@ -225,12 +227,13 @@ class GraphProvider {
       content = await this.fetchResponse(location);
     }
     if (content.status !== 200) await this.jsonResponse(content);
-    const bundle = parseBundle(await boundedBody(content, MAX_BUNDLE_BYTES));
+    const format = match[2] === 'md' ? 'markdown' : 'json';
+    const bundle = parseSharedBundle(await boundedBody(content, format === 'markdown' ? MAX_SHARED_FILE_BYTES : MAX_BUNDLE_BYTES), format);
     const digest = contentHash(bundle);
     if (digest !== match[1] || (expectedDigest && expectedDigest !== digest)) {
       throw new Error('The shared bundle changed or its digest does not match; review a new publication');
     }
-    return { provider: 'onedrive', link: validLink, bundle, bundleDigest: digest,
+    return { provider: 'onedrive', format, link: validLink, bundle, bundleDigest: digest,
       version: item.eTag || null, itemId: item.id, driveId: item.parentReference.driveId };
   }
 
