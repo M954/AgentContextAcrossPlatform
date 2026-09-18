@@ -5,6 +5,7 @@
 >
 > The previous knowledge-handoff plan is preserved in [KNOWLEDGE_HANDOFF_PLAN.md](KNOWLEDGE_HANDOFF_PLAN.md).
 > The [code plan](CODE_PLAN.md) defines implementation modules, contracts, milestones, and tests. It separates restored context from next-step execution readiness; a successful import does not guarantee an equivalent environment.
+> For implemented behavior rather than the target design, see [Current workflow, user experience, and remaining gaps](WORKFLOW_AND_GAPS.md).
 
 The loopback provider is for synthetic local testing only and has no authentication. The OneDrive provider uses delegated Microsoft authentication and provider-managed file permissions. Its protocol is exercised with synthetic Graph fixtures; tenant-specific consent, live two-user sharing and native host integration remain deployment gates. See the README for the implemented CLI and supported limits.
 

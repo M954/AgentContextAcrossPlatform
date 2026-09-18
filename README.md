@@ -6,6 +6,8 @@ The implementation uploads one bounded JSON bundle, creates a specific-people re
 
 > **Restore mode: context document, not native session resumption.** Automatic capture of the complete Copilot transcript, native session creation, and recipient environment readiness checks are not implemented. Only authorized normalized input and selected text files are supported. The Graph adapter has synthetic contract coverage; deployment in your tenant requires an approved Entra application, consent, and a live two-user exercise.
 
+For the full sharer/recipient journey, Copilot chat experience, failure handling, and prioritized unfinished work, see [Current workflow, user experience, and remaining gaps](docs/WORKFLOW_AND_GAPS.md).
+
 ## What is implemented
 
 ```text
@@ -175,6 +177,7 @@ It has no user authentication; keep it on loopback with synthetic data. Do not d
 
 ## Design and API references
 
+- [Current workflow, user experience, and remaining gaps](docs/WORKFLOW_AND_GAPS.md)
 - [Active project plan](docs/PROJECT_PLAN.md)
 - [Code plan and recipient-readiness milestones](docs/CODE_PLAN.md)
 - [Preserved knowledge-handoff plan](docs/KNOWLEDGE_HANDOFF_PLAN.md)

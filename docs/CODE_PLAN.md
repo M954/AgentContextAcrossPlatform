@@ -1,6 +1,6 @@
 # Code Plan: Session Sharing with Recipient Readiness Checks
 
-> Status: Follow-on implementation proposal. A dependency-free loopback prototype now exists; the modules and readiness workflow below describe the target design, not completed capabilities.
+> Status: Target design with a partial implementation. The modules and readiness workflow below are not all completed; use [Current workflow, user experience, and remaining gaps](WORKFLOW_AND_GAPS.md) for the implemented customer journey.
 > Based on the [active project plan](PROJECT_PLAN.md), with an important refinement: restoring context and being able to continue execution are separate outcomes. A successful import must never imply that the recipient's environment reproduces the source environment.
 > The earlier knowledge-mining direction remains in [KNOWLEDGE_HANDOFF_PLAN.md](KNOWLEDGE_HANDOFF_PLAN.md) and is not part of this implementation's first milestone.
 
