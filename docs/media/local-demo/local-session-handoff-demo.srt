@@ -1,77 +1,77 @@
 1
-00:00:00,000 --> 00:00:08,583
+00:00:00,000 --> 00:00:08,000
 Agent Context Across Platform. Share the session context, and let another person
 continue the work.
 
 2
-00:00:08,583 --> 00:00:27,958
+00:00:08,000 --> 00:00:25,333
 When an investigation pauses, can a teammate pick up where your agent stopped and
 reproduce its context and capability? Our project packages the task, history,
 selected files, capability requirements, and next steps into a reviewed handoff,
 so work can continue without starting over.
 
 3
-00:00:27,958 --> 00:00:43,167
+00:00:25,333 --> 00:00:38,625
 The challenge goes beyond copying text. Agent formats differ, files and tools may
 be missing, and permissions do not transfer. We also need to protect sensitive
 information and make unknowns visible.
 
 4
-00:00:43,167 --> 00:00:59,708
+00:00:38,625 --> 00:00:53,542
 Ideally, the sender installs once and shares in one reviewed action. The recipient
 opens a controlled link and continues in their own agent. Capture, redaction,
 approval, and validation stay behind that simple experience.
 
 5
-00:00:59,708 --> 00:01:20,792
+00:00:53,542 --> 00:01:12,167
 The current solution uses a central server to manage session snapshots and sharing
 links. We implemented this server-side workflow first. It can be hosted in a Web
 App once production controls are in place. Next, we will leverage SharePoint and
 OneDrive for secure, compliance-aligned file sharing.
 
 6
-00:01:20,792 --> 00:01:34,208
+00:01:12,167 --> 00:01:24,208
 The flow begins with a share request for the current investigation. This first
 screen shows OneDrive intent, not a completed cloud upload. The demonstration then
 uses the handoff server.
 
 7
-00:01:34,208 --> 00:01:45,208
+00:01:24,208 --> 00:01:34,208
 The proposed cloud path asks for specific recipients. This is an audience-
 selection prompt, not evidence that cloud access has already been granted.
 
 8
-00:01:45,208 --> 00:01:58,625
+00:01:34,208 --> 00:01:46,458
 The review shows the selected provider, destination, and omitted material. Secret
 detection is only an aid. Publication waits for the human to approve the exact
 contents and destination.
 
 9
-00:01:58,625 --> 00:02:12,625
+00:01:46,458 --> 00:01:58,833
 After approval, the server returns a JSON snapshot and link. This is a reviewed
 summary, not the complete live runtime. The address shown here is the test
 instance of that service.
 
 10
-00:02:12,625 --> 00:02:26,042
+00:01:58,833 --> 00:02:10,958
 The recipient supplies the snapshot link and selects Copilot and a workspace.
 Historical context can be imported, but source credentials, permissions, and tool
 connections do not transfer.
 
 11
-00:02:26,042 --> 00:02:39,958
+00:02:10,958 --> 00:02:23,542
 The recorded output reports restored context and a dataset match. It also
 discloses an access denial: popularity statistics came from cached rankings. No
 SQL was run.
 
 12
-00:02:39,958 --> 00:02:58,167
+00:02:23,542 --> 00:02:39,708
 Next, we will leverage SharePoint and OneDrive as a security- and compliance-
 aligned file-sharing foundation. The rollout will use approved identities, scoped
 recipients, and organizational data controls, with validation against tenant
 security and compliance requirements.
 
 13
-00:02:58,167 --> 00:03:07,167
+00:02:39,708 --> 00:02:48,708
 Contact our team to collaborate on the next phase: a simpler handoff that keeps
 security, permissions, and evidence visible.

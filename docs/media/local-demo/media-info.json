@@ -3,87 +3,94 @@
   "width": 1920,
   "height": 1080,
   "fps": 24,
-  "durationSeconds": 187.167,
+  "durationSeconds": 168.708,
   "narration": "Offline Windows speech synthesis",
+  "narrationSettings": {
+    "mode": "Offline Windows speech synthesis",
+    "voice": "Microsoft David Desktop",
+    "rate": 1,
+    "pitchPercent": 5
+  },
+  "audioLoudnessTargetLUFS": -16,
   "source": "Six user-provided, privacy-redacted screenshots; not live screen recording",
   "scenes": [
     {
       "id": "01-title",
       "startSeconds": 0,
-      "durationSeconds": 8.583333333333334,
-      "audioSeconds": 7.768117913832199
+      "durationSeconds": 8.0,
+      "audioSeconds": 6.903401360544217
     },
     {
       "id": "02-question",
-      "startSeconds": 8.583,
-      "durationSeconds": 19.375,
-      "audioSeconds": 18.555827664399093
+      "startSeconds": 8.0,
+      "durationSeconds": 17.333333333333332,
+      "audioSeconds": 16.521179138321994
     },
     {
       "id": "03-challenges",
-      "startSeconds": 27.958,
-      "durationSeconds": 15.208333333333334,
-      "audioSeconds": 14.401768707482994
+      "startSeconds": 25.333,
+      "durationSeconds": 13.291666666666666,
+      "audioSeconds": 12.464126984126985
     },
     {
       "id": "04-solution",
-      "startSeconds": 43.167,
-      "durationSeconds": 16.541666666666668,
-      "audioSeconds": 15.711836734693877
+      "startSeconds": 38.625,
+      "durationSeconds": 14.916666666666666,
+      "audioSeconds": 14.087165532879819
     },
     {
       "id": "05-demo-start",
-      "startSeconds": 59.708,
-      "durationSeconds": 21.083333333333332,
-      "audioSeconds": 20.255510204081634
+      "startSeconds": 53.542,
+      "durationSeconds": 18.625,
+      "audioSeconds": 17.82104308390023
     },
     {
       "id": "05-share",
-      "startSeconds": 80.792,
-      "durationSeconds": 13.416666666666666,
-      "audioSeconds": 12.607120181405895
+      "startSeconds": 72.167,
+      "durationSeconds": 12.041666666666666,
+      "audioSeconds": 11.232290249433106
     },
     {
       "id": "06-audience",
-      "startSeconds": 94.208,
-      "durationSeconds": 11.0,
-      "audioSeconds": 10.19251700680272
+      "startSeconds": 84.208,
+      "durationSeconds": 10.0,
+      "audioSeconds": 8.942675736961451
     },
     {
       "id": "07-review",
-      "startSeconds": 105.208,
-      "durationSeconds": 13.416666666666666,
-      "audioSeconds": 12.607120181405895
+      "startSeconds": 94.208,
+      "durationSeconds": 12.25,
+      "audioSeconds": 11.412290249433106
     },
     {
       "id": "08-published",
-      "startSeconds": 118.625,
-      "durationSeconds": 14.0,
-      "audioSeconds": 13.192154195011337
+      "startSeconds": 106.458,
+      "durationSeconds": 12.375,
+      "audioSeconds": 11.552562358276644
     },
     {
       "id": "09-resume",
-      "startSeconds": 132.625,
-      "durationSeconds": 13.416666666666666,
-      "audioSeconds": 12.586984126984127
+      "startSeconds": 118.833,
+      "durationSeconds": 12.125,
+      "audioSeconds": 11.32421768707483
     },
     {
       "id": "10-continued",
-      "startSeconds": 146.042,
-      "durationSeconds": 13.916666666666666,
-      "audioSeconds": 13.077006802721089
+      "startSeconds": 130.958,
+      "durationSeconds": 12.583333333333334,
+      "audioSeconds": 11.744172335600908
     },
     {
       "id": "11-roadmap",
-      "startSeconds": 159.958,
-      "durationSeconds": 18.208333333333332,
-      "audioSeconds": 17.390884353741498
+      "startSeconds": 143.542,
+      "durationSeconds": 16.166666666666668,
+      "audioSeconds": 15.326485260770975
     },
     {
       "id": "12-team",
-      "startSeconds": 178.167,
+      "startSeconds": 159.708,
       "durationSeconds": 9.0,
-      "audioSeconds": 8.09283446712018
+      "audioSeconds": 7.083310657596372
     }
   ]
 }

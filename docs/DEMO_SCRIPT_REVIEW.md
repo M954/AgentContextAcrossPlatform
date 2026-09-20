@@ -22,7 +22,7 @@ Team: **Haowen Feng | Qinqi Xu**
 
 **Visual direction**
 
-A clean project title, a simple sender-to-recipient graphic, and clearly visible team names. No detailed architecture or screenshot on this page.
+A dominant project title and clearly visible team names. Keep the context/capability/continuation chart on the title page, but smaller and lower so it supports rather than competes with the title. No detailed architecture or screenshot on this page.
 
 ### Page 1 - The question and project overview
 
@@ -172,5 +172,7 @@ Retain the existing closing narration:
 ## Production boundary
 
 The approved revision updates the production storyboard, opening layouts, narration and surrounding labels. The screenshot content, crops and privacy masks are retained. The video and captions follow [the production storyboard](../scripts/demo-video/storyboard.json).
+
+Voice direction: a livelier offline Microsoft David voice, slightly faster delivery, a modest pitch lift, and consistent web-video loudness. Do not change the approved narration text or imitate a team member's voice.
 
 **Accuracy note for production, not a headline slide:** the current server instance runs on loopback for testing and demonstration. Hosting the service in a Web App requires production authentication, authorization, HTTPS, operational controls and validation; do not imply that the unauthenticated test endpoint can simply be exposed to the internet unchanged. Reproducing capabilities also requires the recipient's own tools and permissions, not copying source credentials.

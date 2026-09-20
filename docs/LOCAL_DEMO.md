@@ -9,7 +9,7 @@
 [Approved presentation script](DEMO_SCRIPT_REVIEW.md) |
 [Narration and storyboard](../scripts/demo-video/storyboard.json)
 
-Format: **3 minutes 7 seconds, 1920 x 1080, 24 fps, H.264 video with English narration and on-screen captions**. The separate SRT contains the full narration. Historical file paths are retained so existing video links continue to work.
+Format: **2 minutes 49 seconds, 1920 x 1080, 24 fps, H.264 video with English narration and on-screen captions**. The separate SRT contains the full narration. Historical file paths are retained so existing video links continue to work.
 
 The video is a narrated walkthrough assembled from six user-provided screenshots, not a live screen recording. Published copies redact local paths, session/snapshot identifiers, digests, and internal dataset/usage details. The originals were not changed.
 
@@ -152,7 +152,7 @@ Contact either team member to discuss the demo, collaborate, or help validate th
 - [Published screenshot redaction summary](media/local-demo/screenshots/redactions.json)
 - [Video metadata and scene timing](media/local-demo/media-info.json)
 
-The renderer uses Python with Pillow, local FFmpeg, Windows Segoe UI fonts, and Windows `System.Speech` for offline narration. The pinned Python dependency is listed in [requirements.txt](../scripts/demo-video/requirements.txt); install it into your chosen environment only if needed. No image, text, or audio is sent to a cloud rendering/TTS service. The renderer refuses to overwrite original screenshots; its fixed masks require the exact source dimensions and a fresh visual review if screenshots change.
+The renderer uses Python with Pillow, local FFmpeg, Windows Segoe UI fonts, and Windows `System.Speech` for offline narration. Current voice settings are Microsoft David Desktop, rate `1`, and pitch `+5%`, with a `-16 LUFS` audio target for a livelier, clearer delivery. `narrate.ps1` accepts `-Voice`, `-Rate` and `-PitchPercent` overrides and records the actual settings in the generated media metadata. The pinned Python dependency is listed in [requirements.txt](../scripts/demo-video/requirements.txt); install it into your chosen environment only if needed. No image, text, or audio is sent to a cloud rendering/TTS service. The renderer refuses to overwrite original screenshots; its fixed masks require the exact source dimensions and a fresh visual review if screenshots change.
 
 To rebuild from the already-redacted repository assets:
 

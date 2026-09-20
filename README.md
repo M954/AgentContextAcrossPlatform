@@ -14,7 +14,7 @@ For the full sharer/recipient journey, Copilot chat experience, failure handling
 
 [Watch/download the narrated video](docs/media/local-demo/local-session-handoff-demo.mp4) | [Demo guide](docs/LOCAL_DEMO.md) | [Approved script](docs/DEMO_SCRIPT_REVIEW.md)
 
-The **3:07 narrated, 1080p walkthrough** opens with the team, both targets (reproduce agent context/capability and stop/continue work), the challenges, and the ideal solution. A dedicated demo introduction positions the implemented handoff as a **central-server solution**, with Web App hosting as a deployment target, followed by the six redacted screenshot steps. The next phase is SharePoint/OneDrive sharing aligned with tenant security and compliance requirements; production hosting still requires access controls and validation.
+The **2:49 narrated, 1080p walkthrough** opens with a prominent project title, smaller supporting chart, and team names, followed by both targets (reproduce agent context/capability and stop/continue work), the challenges, and the ideal solution. The refreshed narration uses a livelier offline voice. A dedicated demo introduction positions the implemented handoff as a **central-server solution**, with Web App hosting as a deployment target, followed by the six redacted screenshot steps. The next phase is SharePoint/OneDrive sharing aligned with tenant security and compliance requirements; production hosting still requires access controls and validation.
 
 **Team/contact:** Haowen Feng and Qinqi Xu. Contact either team member to collaborate.
 

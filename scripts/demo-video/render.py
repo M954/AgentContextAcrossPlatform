@@ -157,19 +157,19 @@ def draw_frame(scene, assets, width, height, number, total, team):
     image = background(width, height)
     draw = ImageDraw.Draw(image)
     kind = scene["kind"]
-    block(draw, scene["eyebrow"], (86, 42), 24, TEAL, bold=True)
-    title_size = 69 if kind == "cover" else 49
-    title_end = block(draw, scene["title"], (82, 95), title_size, width=1750, bold=True)
-    subtitle_y = max(218 if kind == "cover" else 170, title_end + 8)
-    block(draw, scene["subtitle"], (86, subtitle_y), 29, MUTED, width=1740)
+    block(draw, scene["eyebrow"], (86, 80 if kind == "cover" else 42), 24, TEAL, bold=True)
+    title_size = 104 if kind == "cover" else 49
+    title_end = block(draw, scene["title"], (80, 184 if kind == "cover" else 95),
+                      title_size, width=1760, bold=True)
+    subtitle_y = max(340 if kind == "cover" else 170, title_end + 8)
+    block(draw, scene["subtitle"], (86, subtitle_y), 34 if kind == "cover" else 29, MUTED, width=1740)
     if kind == "cover":
         for index, label in enumerate(["CONTEXT", "CAPABILITY", "CONTINUATION"]):
-            x = 86 + index * 618
-            draw.rounded_rectangle((x, 382, x + 512, 590), radius=23, fill=CARD, outline=BLUE, width=2)
-            block(draw, f"0{index + 1}", (x + 30, 413), 25, TEAL, bold=True)
-            block(draw, label, (x + 30, 482), 35, width=450, bold=True)
+            x = 86 + index * 396
+            draw.rounded_rectangle((x, 529, x + 316, 633), radius=15, fill=CARD, outline=(52, 78, 108), width=1)
+            block(draw, label, (x + 24, 565), 24, MUTED, width=268, bold=True)
             if index < 2:
-                arrow(draw, x + 534, x + 593, 486)
+                arrow(draw, x + 336, x + 376, 582)
         block(draw, "TEAM", (89, 737), 24, TEAL, bold=True)
         block(draw, "   |   ".join(team), (85, 786), 48, width=1720, bold=True)
     elif kind == "overview":
@@ -318,7 +318,7 @@ def render(plan_path, assets, work, output, frames_only=False):
         run([ffmpeg, "-hide_banner", "-loglevel", "error", "-y", "-loop", "1", "-framerate", str(plan["fps"]),
              "-i", str(frames / f"{scene['id']}.png"), "-i", str(wav), "-t", f"{seconds:.4f}",
              "-vf", f"fade=t=in:st=0:d=0.3,fade=t=out:st={seconds-0.3:.4f}:d=0.3,format=yuv420p",
-             "-af", "apad", "-c:v", "libx264", "-preset", "medium", "-crf", "21", "-threads", "2",
+             "-af", "loudnorm=I=-16:TP=-1.5:LRA=9,apad", "-c:v", "libx264", "-preset", "medium", "-crf", "21", "-threads", "2",
              "-c:a", "aac", "-ar", "48000", "-b:a", "128k", "-movflags", "+faststart", str(clip)])
         subtitles.append(f"{index}\n{timestamp(elapsed)} --> {timestamp(elapsed + seconds)}\n" +
                          "\n".join(textwrap.wrap(scene["narration"], width=82)) + "\n")
@@ -332,9 +332,12 @@ def render(plan_path, assets, work, output, frames_only=False):
     run([ffmpeg, "-hide_banner", "-loglevel", "error", "-y", "-f", "concat", "-safe", "0",
          "-i", str(concat), "-c", "copy", "-movflags", "+faststart", str(video)])
     (output / "local-session-handoff-demo.srt").write_text("\n".join(subtitles), encoding="utf-8")
+    narration_file = work / "audio" / "narration-info.json"
+    narration_settings = json.loads(narration_file.read_text(encoding="utf-8-sig")) if narration_file.exists() else None
     (output / "media-info.json").write_text(json.dumps({
         "title": plan["title"], "width": plan["width"], "height": plan["height"], "fps": plan["fps"],
         "durationSeconds": round(elapsed, 3), "narration": "Offline Windows speech synthesis",
+        "narrationSettings": narration_settings, "audioLoudnessTargetLUFS": -16,
         "source": "Six user-provided, privacy-redacted screenshots; not live screen recording",
         "scenes": scene_report,
     }, indent=2), encoding="utf-8")
