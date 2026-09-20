@@ -8,6 +8,16 @@ The quick sharing path uploads one **readable Markdown handoff with the complete
 
 For the full sharer/recipient journey, Copilot chat experience, failure handling, and prioritized unfinished work, see [Current workflow, user experience, and remaining gaps](docs/WORKFLOW_AND_GAPS.md).
 
+## Local demo video
+
+[![Watch the local session-handoff demo](docs/media/local-demo/poster.png)](docs/media/local-demo/local-session-handoff-demo.mp4)
+
+[Watch/download the narrated video](docs/media/local-demo/local-session-handoff-demo.mp4) | [Local demo guide and limitations](docs/LOCAL_DEMO.md)
+
+The **2:35 narrated, 1080p walkthrough** covers the question, target, solution, and six redacted screenshots of sharing, review, local publication and resumption. It is based on a **local solution**, not a validated cloud deployment. The future rollout is SharePoint/OneDrive file sharing aligned with tenant security and compliance requirements.
+
+**Team/contact:** Haowen Feng and Qinqi Xu. Contact either team member to collaborate.
+
 ## Simplest customer experience
 
 | Person | Normal action | Product setup |
@@ -237,11 +247,13 @@ Demos use synthetic Graph transport and synthetic approval callbacks with the re
 
 ## Local-only transport test
 
-The loopback service remains a synthetic test provider, not production storage:
+The loopback service remains a synthetic test provider, not production storage. See the [complete local walkthrough](docs/LOCAL_DEMO.md) for chat prompts, native Copilot import, screenshots and the narrated demo.
 
 ```powershell
-npm start
+node src\cli.js serve --host 127.0.0.1 --port 8787 --data-dir .data\local-demo-service
 ```
+
+Leave this terminal open. The health endpoint is `http://127.0.0.1:8787/healthz`; `/` is not a web homepage. The local storage service is separate from the STDIO MCP server.
 
 In another terminal:
 
@@ -254,6 +266,7 @@ These quick commands require interactive approval. The local test provider uses 
 
 ## Design and API references
 
+- [Local demo video, walkthrough, evidence limits and team contact](docs/LOCAL_DEMO.md)
 - [Current workflow, user experience, and remaining gaps](docs/WORKFLOW_AND_GAPS.md)
 - [Pi/Copilot native integration with reviewed OneDrive sharing](docs/PI.md)
 - [Passive readiness for import reviews](docs/READINESS.md)

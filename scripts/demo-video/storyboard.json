@@ -1,0 +1,163 @@
+{
+  "title": "AgentContextAcrossPlatform - Local session handoff",
+  "width": 1920,
+  "height": 1080,
+  "fps": 24,
+  "team": ["Haowen Feng", "Qinqi Xu"],
+  "scenes": [
+    {
+      "id": "01-title",
+      "kind": "title",
+      "eyebrow": "AGENT CONTEXT ACROSS PLATFORM",
+      "title": "Pick up the work.\nNot the explanation.",
+      "subtitle": "A reviewed session handoff - demonstrated locally",
+      "caption": "Screenshot walkthrough. Local transport, not a cloud deployment.",
+      "narration": "How can a teammate pick up an agent investigation without starting over? This is Agent Context Across Platform, demonstrated with a local session handoff.",
+      "minimumSeconds": 8
+    },
+    {
+      "id": "02-question",
+      "kind": "cards",
+      "eyebrow": "THE QUESTION",
+      "title": "Can someone else continue my session?",
+      "subtitle": "Keep the context. Keep the boundaries.",
+      "cards": [
+        ["The context", "What was the task?\nWhat did we already try?"],
+        ["The unfinished work", "Where did it stop?\nWhat should happen next?"],
+        ["The trust boundary", "Which evidence is missing?\nWhose permissions apply?"]
+      ],
+      "caption": "A good handoff preserves uncertainty as well as progress.",
+      "narration": "An unfinished investigation has a goal, earlier attempts, open questions, and access limits. A useful handoff should preserve all four, not just a confident summary.",
+      "minimumSeconds": 9
+    },
+    {
+      "id": "03-target",
+      "kind": "cards",
+      "eyebrow": "THE TARGET",
+      "title": "Share once. Continue with context.",
+      "subtitle": "A simpler experience for both people",
+      "cards": [
+        ["Sender", "Install once.\nShare in one reviewed action."],
+        ["Recipient", "Open the handoff.\nContinue in a local agent."],
+        ["Always required", "Authorized access.\nHuman review and consent."]
+      ],
+      "caption": "UX goal: minimal additional setup, never permission-free access.",
+      "narration": "The target is one reviewed share action for the sender and a simple starting point for the recipient. Access, authentication, and human consent still matter.",
+      "minimumSeconds": 9
+    },
+    {
+      "id": "04-solution",
+      "kind": "flow",
+      "eyebrow": "THE SOLUTION",
+      "title": "Transfer the context, not the credentials.",
+      "subtitle": "One approval pipeline, with a local test transport",
+      "steps": ["Capture\nand redact", "Review\nand approve", "Snapshot\nand local link", "Resume\nand review"],
+      "caption": "A snapshot is not a copy of the source machine, permissions, or model state.",
+      "narration": "Capture the selected context, redact sensitive material, review the exact bundle, and publish a snapshot. The receiving agent treats it as historical reference, not permission to replay commands.",
+      "minimumSeconds": 10
+    },
+    {
+      "id": "05-share",
+      "kind": "screenshot",
+      "step": 1,
+      "eyebrow": "LOCAL WALKTHROUGH / SHARE REQUEST",
+      "title": "Start with the task that needs a handoff.",
+      "subtitle": "The captured state includes unfinished work and missing evidence",
+      "image": "session_share.png",
+      "crop": [0, 0, 1790, 424],
+      "caption": "This initial screenshot shows OneDrive intent. The demonstrated publish is local.",
+      "narration": "The flow begins with a share request for the current investigation. This first screen shows OneDrive intent, not a completed cloud upload. The demonstration then uses local transport.",
+      "minimumSeconds": 10
+    },
+    {
+      "id": "06-audience",
+      "kind": "screenshot",
+      "step": 2,
+      "eyebrow": "LOCAL WALKTHROUGH / AUDIENCE",
+      "title": "Make the intended audience explicit.",
+      "subtitle": "A recipient-selection prompt for the cloud path",
+      "image": "share_to_target_user.png",
+      "crop": [0, 0, 2250, 243],
+      "caption": "No cloud recipient grant or identity enforcement is demonstrated by localhost.",
+      "narration": "The proposed cloud path asks for specific recipients. This is an audience-selection prompt. It does not mean the local endpoint has authenticated a recipient or granted cloud access.",
+      "minimumSeconds": 10
+    },
+    {
+      "id": "07-review",
+      "kind": "screenshot",
+      "step": 3,
+      "eyebrow": "LOCAL WALKTHROUGH / HUMAN REVIEW",
+      "title": "Review before anything is published.",
+      "subtitle": "Scope, omissions, destination and approval are visible",
+      "image": "confirm_information.png",
+      "crop": [0, 0, 1850, 421],
+      "caption": "Provider: local. Secret detection is best effort; the human decides.",
+      "narration": "The review explicitly shows the local provider and omitted material. Secret detection is only an aid. Publication waits for the human to approve the exact contents and destination.",
+      "minimumSeconds": 11
+    },
+    {
+      "id": "08-published",
+      "kind": "screenshot",
+      "step": 4,
+      "eyebrow": "LOCAL WALKTHROUGH / SNAPSHOT",
+      "title": "A local snapshot is ready to hand off.",
+      "subtitle": "The recorded result is a JSON summary and a localhost link",
+      "image": "locally_share_snapshot.png",
+      "crop": [0, 0, 1900, 229],
+      "caption": "The link works only on the serving machine. It is not an internet-sharing link.",
+      "narration": "After approval, the agent reports a local JSON snapshot and link. This is a reviewed summary, not the complete live runtime, and the localhost address works only on this machine.",
+      "minimumSeconds": 10
+    },
+    {
+      "id": "09-resume",
+      "kind": "screenshot",
+      "step": 5,
+      "eyebrow": "LOCAL WALKTHROUGH / RECIPIENT",
+      "title": "Resume with a local target and workspace.",
+      "subtitle": "The recorded request selects Copilot and the recipient's workspace",
+      "image": "session_resume.png",
+      "crop": [0, 0, 1640, 289],
+      "caption": "Historical context is data. Source credentials and tool permissions do not transfer.",
+      "narration": "The recipient supplies the local link and selects Copilot and a workspace. Historical context can be imported, but source credentials, permissions, and tool connections do not transfer.",
+      "minimumSeconds": 10
+    },
+    {
+      "id": "10-continued",
+      "kind": "screenshot",
+      "step": 6,
+      "eyebrow": "LOCAL WALKTHROUGH / CONTINUATION",
+      "title": "Pick up the investigation - with its limits.",
+      "subtitle": "Recorded agent output, not an independent validation claim",
+      "image": "session_restore_finish.png",
+      "crop": [0, 0, 2120, 222],
+      "caption": "The screenshot reports a match. Cached rankings followed HTTP 403. SQL was not run.",
+      "narration": "The recorded output reports restored context and a dataset match. It also discloses an access denial: popularity statistics came from cached rankings. No SQL was run.",
+      "minimumSeconds": 11
+    },
+    {
+      "id": "11-roadmap",
+      "kind": "cards",
+      "eyebrow": "NEXT / SHAREPOINT AND ONEDRIVE",
+      "title": "Move from local proof to policy-aligned sharing.",
+      "subtitle": "A future rollout gate, not a compliance certification",
+      "cards": [
+        ["Identity and audience", "Approved tenant and app.\nRecipient-owned identity.\nSpecific-people access."],
+        ["Data protection", "Minimal capture and redaction.\nExplicit review.\nRespect labels and restrictions."],
+        ["Operational controls", "Audit and lifecycle policy.\nExpiry and revocation.\nLive cross-user validation."]
+      ],
+      "caption": "The provider adapter exists; secure tenant rollout and compliance review remain ahead.",
+      "narration": "Next is secure, policy-aligned sharing through SharePoint and OneDrive. That requires approved identity, scoped recipients, data controls, and live tenant validation. Compliance is not established by this local demo.",
+      "minimumSeconds": 12
+    },
+    {
+      "id": "12-team",
+      "kind": "team",
+      "eyebrow": "TEAM / CONTACT",
+      "title": "Let's make session handoffs easier.",
+      "subtitle": "Haowen Feng  |  Qinqi Xu",
+      "caption": "Contact Haowen Feng or Qinqi Xu to discuss the demo and next phase.",
+      "narration": "Contact our team to collaborate on the next phase: a simpler handoff that keeps security, permissions, and evidence visible.",
+      "minimumSeconds": 9
+    }
+  ]
+}

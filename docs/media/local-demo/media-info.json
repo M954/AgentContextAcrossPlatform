@@ -1,0 +1,83 @@
+{
+  "title": "AgentContextAcrossPlatform - Local session handoff",
+  "width": 1920,
+  "height": 1080,
+  "fps": 24,
+  "durationSeconds": 155.125,
+  "narration": "Offline Windows speech synthesis",
+  "source": "Six user-provided, privacy-redacted screenshots; not live screen recording",
+  "scenes": [
+    {
+      "id": "01-title",
+      "startSeconds": 0,
+      "durationSeconds": 11.416666666666666,
+      "audioSeconds": 10.57718820861678
+    },
+    {
+      "id": "02-question",
+      "startSeconds": 11.417,
+      "durationSeconds": 12.5,
+      "audioSeconds": 11.697551020408163
+    },
+    {
+      "id": "03-target",
+      "startSeconds": 23.917,
+      "durationSeconds": 10.708333333333334,
+      "audioSeconds": 9.897460317460318
+    },
+    {
+      "id": "04-solution",
+      "startSeconds": 34.625,
+      "durationSeconds": 14.791666666666666,
+      "audioSeconds": 13.956780045351474
+    },
+    {
+      "id": "05-share",
+      "startSeconds": 49.417,
+      "durationSeconds": 13.458333333333334,
+      "audioSeconds": 12.627256235827664
+    },
+    {
+      "id": "06-audience",
+      "startSeconds": 62.875,
+      "durationSeconds": 13.416666666666666,
+      "audioSeconds": 12.597052154195012
+    },
+    {
+      "id": "07-review",
+      "startSeconds": 76.292,
+      "durationSeconds": 12.875,
+      "audioSeconds": 12.067120181405896
+    },
+    {
+      "id": "08-published",
+      "startSeconds": 89.167,
+      "durationSeconds": 13.75,
+      "audioSeconds": 12.912244897959184
+    },
+    {
+      "id": "09-resume",
+      "startSeconds": 102.917,
+      "durationSeconds": 13.208333333333334,
+      "audioSeconds": 12.367074829931973
+    },
+    {
+      "id": "10-continued",
+      "startSeconds": 116.125,
+      "durationSeconds": 13.916666666666666,
+      "audioSeconds": 13.077006802721089
+    },
+    {
+      "id": "11-roadmap",
+      "startSeconds": 130.042,
+      "durationSeconds": 16.083333333333332,
+      "audioSeconds": 15.276598639455782
+    },
+    {
+      "id": "12-team",
+      "startSeconds": 146.125,
+      "durationSeconds": 9.0,
+      "audioSeconds": 8.09283446712018
+    }
+  ]
+}

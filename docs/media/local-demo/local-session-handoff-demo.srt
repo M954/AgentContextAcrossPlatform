@@ -1,0 +1,68 @@
+1
+00:00:00,000 --> 00:00:11,417
+How can a teammate pick up an agent investigation without starting over? This is
+Agent Context Across Platform, demonstrated with a local session handoff.
+
+2
+00:00:11,417 --> 00:00:23,917
+An unfinished investigation has a goal, earlier attempts, open questions, and
+access limits. A useful handoff should preserve all four, not just a confident
+summary.
+
+3
+00:00:23,917 --> 00:00:34,625
+The target is one reviewed share action for the sender and a simple starting point
+for the recipient. Access, authentication, and human consent still matter.
+
+4
+00:00:34,625 --> 00:00:49,417
+Capture the selected context, redact sensitive material, review the exact bundle,
+and publish a snapshot. The receiving agent treats it as historical reference, not
+permission to replay commands.
+
+5
+00:00:49,417 --> 00:01:02,875
+The flow begins with a share request for the current investigation. This first
+screen shows OneDrive intent, not a completed cloud upload. The demonstration then
+uses local transport.
+
+6
+00:01:02,875 --> 00:01:16,292
+The proposed cloud path asks for specific recipients. This is an audience-
+selection prompt. It does not mean the local endpoint has authenticated a
+recipient or granted cloud access.
+
+7
+00:01:16,292 --> 00:01:29,167
+The review explicitly shows the local provider and omitted material. Secret
+detection is only an aid. Publication waits for the human to approve the exact
+contents and destination.
+
+8
+00:01:29,167 --> 00:01:42,917
+After approval, the agent reports a local JSON snapshot and link. This is a
+reviewed summary, not the complete live runtime, and the localhost address works
+only on this machine.
+
+9
+00:01:42,917 --> 00:01:56,125
+The recipient supplies the local link and selects Copilot and a workspace.
+Historical context can be imported, but source credentials, permissions, and tool
+connections do not transfer.
+
+10
+00:01:56,125 --> 00:02:10,042
+The recorded output reports restored context and a dataset match. It also
+discloses an access denial: popularity statistics came from cached rankings. No
+SQL was run.
+
+11
+00:02:10,042 --> 00:02:26,125
+Next is secure, policy-aligned sharing through SharePoint and OneDrive. That
+requires approved identity, scoped recipients, data controls, and live tenant
+validation. Compliance is not established by this local demo.
+
+12
+00:02:26,125 --> 00:02:35,125
+Contact our team to collaborate on the next phase: a simpler handoff that keeps
+security, permissions, and evidence visible.

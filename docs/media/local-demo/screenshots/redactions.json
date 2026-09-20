@@ -1,0 +1,53 @@
+{
+  "note": "Opaque masks applied to publication copies. Original images are unchanged. No original paths or image metadata retained.",
+  "images": [
+    {
+      "file": "session_share.png",
+      "dimensions": [
+        2688,
+        424
+      ],
+      "redactedRegions": 3
+    },
+    {
+      "file": "share_to_target_user.png",
+      "dimensions": [
+        2725,
+        243
+      ],
+      "redactedRegions": 0
+    },
+    {
+      "file": "confirm_information.png",
+      "dimensions": [
+        2707,
+        421
+      ],
+      "redactedRegions": 3
+    },
+    {
+      "file": "locally_share_snapshot.png",
+      "dimensions": [
+        2677,
+        229
+      ],
+      "redactedRegions": 3
+    },
+    {
+      "file": "session_resume.png",
+      "dimensions": [
+        2695,
+        289
+      ],
+      "redactedRegions": 2
+    },
+    {
+      "file": "session_restore_finish.png",
+      "dimensions": [
+        2685,
+        222
+      ],
+      "redactedRegions": 4
+    }
+  ]
+}

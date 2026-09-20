@@ -6,6 +6,8 @@
 **Recommended path: the sender uses one share action; the recipient reads a portable handoff with an existing authorized agent, without installing AgentContext.**
 **Target: one-time sender installation, one share command, one recipient prompt with no additional product setup.**
 
+For the local-only session-share/resume demonstration, screenshots, narrated video and future security/compliance rollout, see [Local Demo](LOCAL_DEMO.md). The local endpoint does not establish Microsoft recipient authorization or cloud deployment readiness.
+
 The quick share produces readable Markdown containing the complete bundle, plus a ready-to-paste `recipientPrompt`. If the recipient's existing agent can already authenticate and fetch the file, that prompt starts context continuation. Otherwise, browser sign-in/download and attachment are the explicit fallback. No package, Node.js, new MCP registration or our Graph app configuration is needed just to read the document.
 
 **Protected-file access, an existing agent, and human review are still requirements.** The integration does not weaken sharing permissions or promise every agent can fetch SharePoint links. Ordinary reading does not perform our integrity/readiness checks or automatically create a native session.
