@@ -1,29 +1,32 @@
-# Local Demo: Share, Review, Resume
+# Central-Server Demo: Share, Review, Resume
 
-**This demonstration uses local storage and a loopback HTTP endpoint. It is not a completed SharePoint/OneDrive deployment or a compliance certification.**
+**Current solution: central server-based session handoff.** The implemented service manages reviewed snapshots and sharing links; the demo instance runs on loopback for testing. A hosted Web App is a deployment target once production authentication, authorization, HTTPS and operational controls are in place. The next sharing foundation is SharePoint/OneDrive with security and compliance validation.
 
-[![Watch the narrated local demo](media/local-demo/poster.png)](media/local-demo/local-session-handoff-demo.mp4)
+[![Watch the narrated central-server demo](media/local-demo/poster.png)](media/local-demo/local-session-handoff-demo.mp4)
 
 [Watch/download the MP4](media/local-demo/local-session-handoff-demo.mp4) |
 [Captions](media/local-demo/local-session-handoff-demo.srt) |
+[Approved presentation script](DEMO_SCRIPT_REVIEW.md) |
 [Narration and storyboard](../scripts/demo-video/storyboard.json)
 
-Format: **2 minutes 35 seconds, 1920 x 1080, 24 fps, H.264 video with English narration and on-screen captions**. The separate SRT contains the full narration.
+Format: **3 minutes 7 seconds, 1920 x 1080, 24 fps, H.264 video with English narration and on-screen captions**. The separate SRT contains the full narration. Historical file paths are retained so existing video links continue to work.
 
 The video is a narrated walkthrough assembled from six user-provided screenshots, not a live screen recording. Published copies redact local paths, session/snapshot identifiers, digests, and internal dataset/usage details. The originals were not changed.
 
 ## The question, target, and solution
 
-**Question:** How can another person continue an agent investigation without reconstructing the task, prior attempts, open questions, and limitations?
+**Questions:** Can another team member reproduce your agent context and capability? Can a teammate pick up where your agent stopped?
 
-**Target:** A sender shares in one reviewed action; a recipient gets a useful starting point in their own agent. Minimize additional setup without removing authentication, file access, or human consent.
+**Targets:** Share the task history, methods, selected files and capability requirements; preserve the stopping point, unfinished work and next actions. A sender shares in one reviewed action and a recipient continues in their own authorized environment.
 
-**Solution:** Capture selected context, redact, review the exact bundle, publish a snapshot/link, and let the recipient inspect and resume with their own environment. A handoff is historical reference, not a transfer of credentials, source permissions, model internals, or live connections.
+**Ideal solution:** Capture selected context, redact, review the exact bundle, publish a controlled snapshot/link, and let the recipient inspect and resume. The central-server handoff workflow was implemented first; SharePoint/OneDrive is the next protected file-sharing foundation. A handoff is historical reference, not a transfer of credentials, source permissions, model internals, or live connections.
+
+The revised opening is: **title/team -> both questions and project overview -> challenges -> ideal solution -> central-server demo introduction**. The six screenshot steps keep their source content, crops and privacy masks. The presentation does not position the test location as the product architecture.
 
 ```text
-Selected context -> Redaction -> Human approval -> Local JSON snapshot
+Selected context -> Redaction -> Human approval -> Central snapshot service
                                                        |
-                                                 Loopback link
+                                                  Snapshot link
                                                        |
                            Recipient review -> Document or native import
                                                        |

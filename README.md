@@ -8,13 +8,13 @@ The quick sharing path uploads one **readable Markdown handoff with the complete
 
 For the full sharer/recipient journey, Copilot chat experience, failure handling, and prioritized unfinished work, see [Current workflow, user experience, and remaining gaps](docs/WORKFLOW_AND_GAPS.md).
 
-## Local demo video
+## Session handoff demo video
 
-[![Watch the local session-handoff demo](docs/media/local-demo/poster.png)](docs/media/local-demo/local-session-handoff-demo.mp4)
+[![Watch the central-server session-handoff demo](docs/media/local-demo/poster.png)](docs/media/local-demo/local-session-handoff-demo.mp4)
 
-[Watch/download the narrated video](docs/media/local-demo/local-session-handoff-demo.mp4) | [Local demo guide and limitations](docs/LOCAL_DEMO.md)
+[Watch/download the narrated video](docs/media/local-demo/local-session-handoff-demo.mp4) | [Demo guide](docs/LOCAL_DEMO.md) | [Approved script](docs/DEMO_SCRIPT_REVIEW.md)
 
-The **2:35 narrated, 1080p walkthrough** covers the question, target, solution, and six redacted screenshots of sharing, review, local publication and resumption. It is based on a **local solution**, not a validated cloud deployment. The future rollout is SharePoint/OneDrive file sharing aligned with tenant security and compliance requirements.
+The **3:07 narrated, 1080p walkthrough** opens with the team, both targets (reproduce agent context/capability and stop/continue work), the challenges, and the ideal solution. A dedicated demo introduction positions the implemented handoff as a **central-server solution**, with Web App hosting as a deployment target, followed by the six redacted screenshot steps. The next phase is SharePoint/OneDrive sharing aligned with tenant security and compliance requirements; production hosting still requires access controls and validation.
 
 **Team/contact:** Haowen Feng and Qinqi Xu. Contact either team member to collaborate.
 
@@ -266,7 +266,8 @@ These quick commands require interactive approval. The local test provider uses 
 
 ## Design and API references
 
-- [Local demo video, walkthrough, evidence limits and team contact](docs/LOCAL_DEMO.md)
+- [Central-server demo video, walkthrough, evidence limits and team contact](docs/LOCAL_DEMO.md)
+- [Approved presentation script](docs/DEMO_SCRIPT_REVIEW.md)
 - [Current workflow, user experience, and remaining gaps](docs/WORKFLOW_AND_GAPS.md)
 - [Pi/Copilot native integration with reviewed OneDrive sharing](docs/PI.md)
 - [Passive readiness for import reviews](docs/READINESS.md)

@@ -148,19 +148,43 @@ def contact_sheet(directory, output, names, screenshots=False):
     canvas.save(output, "JPEG", quality=92)
 
 
-def draw_frame(scene, assets, width, height, number, total):
+def arrow(draw, start, end, y):
+    draw.line((start, y, end, y), fill=TEAL, width=4)
+    draw.polygon([(end, y), (end - 13, y - 11), (end - 13, y + 11)], fill=TEAL)
+
+
+def draw_frame(scene, assets, width, height, number, total, team):
     image = background(width, height)
     draw = ImageDraw.Draw(image)
     kind = scene["kind"]
     block(draw, scene["eyebrow"], (86, 42), 24, TEAL, bold=True)
-    title_size = 69 if kind == "title" else 49
-    block(draw, scene["title"], (82, 95), title_size, width=1750, bold=True)
-    subtitle_y = 295 if kind == "title" else 170
+    title_size = 69 if kind == "cover" else 49
+    title_end = block(draw, scene["title"], (82, 95), title_size, width=1750, bold=True)
+    subtitle_y = max(218 if kind == "cover" else 170, title_end + 8)
     block(draw, scene["subtitle"], (86, subtitle_y), 29, MUTED, width=1740)
-    if kind == "title":
-        draw.rounded_rectangle((86, 432, 1834, 758), radius=24, fill=CARD)
-        block(draw, "Capture context  ->  Review  ->  Share  ->  Resume", (128, 477), 42, width=1640, bold=True)
-        block(draw, "Local proof of concept\nA snapshot of work - not a transfer of credentials or runtime state", (128, 571), 34, MUTED, width=1640)
+    if kind == "cover":
+        for index, label in enumerate(["CONTEXT", "CAPABILITY", "CONTINUATION"]):
+            x = 86 + index * 618
+            draw.rounded_rectangle((x, 382, x + 512, 590), radius=23, fill=CARD, outline=BLUE, width=2)
+            block(draw, f"0{index + 1}", (x + 30, 413), 25, TEAL, bold=True)
+            block(draw, label, (x + 30, 482), 35, width=450, bold=True)
+            if index < 2:
+                arrow(draw, x + 534, x + 593, 486)
+        block(draw, "TEAM", (89, 737), 24, TEAL, bold=True)
+        block(draw, "   |   ".join(team), (85, 786), 48, width=1720, bold=True)
+    elif kind == "overview":
+        for index, (label, question, detail) in enumerate(scene["targets"]):
+            x = 86 + index * 898
+            draw.rounded_rectangle((x, 294, x + 850, 711), radius=21, fill=CARD)
+            block(draw, f"0{index + 1}  {label}", (x + 29, 326), 22, TEAL, width=792, bold=True)
+            bottom = block(draw, question, (x + 29, 392), 38, width=792, bold=True, spacing=1.23)
+            if bottom > 560:
+                raise ValueError("Question card exceeds its layout")
+            block(draw, detail, (x + 29, 585), 28, MUTED, width=792, spacing=1.3)
+        block(draw, "PROJECT OVERVIEW", (89, 755), 22, TEAL, bold=True)
+        bottom = block(draw, scene["overview"], (87, 799), 30, width=1740, spacing=1.3)
+        if bottom > 917:
+            raise ValueError("Project overview exceeds its layout")
     elif kind == "cards":
         cards = scene["cards"]
         gap = 24
@@ -172,17 +196,38 @@ def draw_frame(scene, assets, width, height, number, total):
             draw.text((x + 45, 337), str(index + 1), font=font(26, True), fill=NAVY)
             block(draw, heading, (x + 28, 429), 34, width=card_width - 56, bold=True)
             block(draw, text, (x + 28, 526), 29, MUTED, width=card_width - 56, spacing=1.5)
-    elif kind == "flow":
-        for index, label in enumerate(scene["steps"]):
-            x = 86 + index * 450
-            draw.rounded_rectangle((x, 336, x + 398, 612), radius=22, fill=CARD, outline=BLUE, width=2)
-            block(draw, f"0{index + 1}", (x + 28, 368), 28, TEAL, bold=True)
-            block(draw, label, (x + 28, 429), 39, width=350, bold=True)
-            if index < 3:
-                draw.line((x + 412, 469, x + 440, 469), fill=TEAL, width=4)
-                draw.polygon([(x + 440, 469), (x + 427, 458), (x + 427, 480)], fill=TEAL)
-        block(draw, "Loopback storage  |  Private local artifacts  |  No automatic replay", (86, 680), 31, MUTED)
-        block(draw, "LOCAL ENDPOINT:  http://127.0.0.1:8787", (86, 755), 28, TEAL, bold=True)
+    elif kind == "ideal":
+        for index, (heading, text) in enumerate(scene["parties"]):
+            x = 86 + index * 618
+            draw.rounded_rectangle((x, 320, x + 512, 665), radius=22, fill=CARD, outline=BLUE, width=2)
+            block(draw, f"0{index + 1}", (x + 29, 347), 25, TEAL, bold=True)
+            block(draw, heading, (x + 29, 400), 36, width=454, bold=True)
+            block(draw, text, (x + 29, 491), 29, MUTED, width=454, spacing=1.45)
+            if index < 2:
+                arrow(draw, x + 534, x + 593, 488)
+        draw.rounded_rectangle((86, 738, 1834, 865), radius=18, fill=CARD)
+        block(draw, "BEHIND THE SIMPLE EXPERIENCE", (116, 758), 21, TEAL, bold=True)
+        block(draw, "Capture  ->  Redact  ->  Approve  ->  Share  ->  Validate  ->  Resume",
+              (116, 802), 30, width=1690, bold=True)
+    elif kind == "server":
+        draw.rounded_rectangle((86, 289, 1020, 831), radius=22, fill=CARD, outline=BLUE, width=2)
+        draw.rounded_rectangle((1050, 289, 1834, 831), radius=22, fill=CARD)
+        block(draw, "CURRENT SOLUTION", (118, 322), 22, TEAL, bold=True)
+        block(draw, "Central server", (116, 373), 45, width=860, bold=True)
+        block(draw, "Reviewed snapshots and sharing links\nPublication, retrieval and revocation",
+              (118, 446), 28, MUTED, width=850, spacing=1.4)
+        for index, label in enumerate(["Sender", "Service", "Recipient"]):
+            x = 119 + index * 289
+            draw.rounded_rectangle((x, 576, x + 230, 662), radius=14, outline=TEAL, width=2)
+            block(draw, label, (x + 22, 601), 29, width=190, bold=True)
+            if index < 2:
+                arrow(draw, x + 242, x + 274, 619)
+        block(draw, "WEB APP: DEPLOYMENT TARGET", (118, 718), 25, TEAL, bold=True)
+        block(draw, "Production access controls and validation required.", (118, 765), 23, MUTED, width=850)
+        block(draw, "NEXT SHARING FOUNDATION", (1083, 322), 22, TEAL, bold=True)
+        block(draw, "SharePoint / OneDrive", (1080, 377), 38, width=715, bold=True)
+        block(draw, "Protected file-based sharing\nApproved Microsoft identity\nSpecific recipient permissions\nSecurity and governance controls\nCompliance validation",
+              (1083, 471), 28, MUTED, width=713, spacing=1.65)
     elif kind == "screenshot":
         box = (86, 247, 1834, 785)
         draw.rounded_rectangle(box, radius=20, fill=(255, 255, 255))
@@ -191,14 +236,14 @@ def draw_frame(scene, assets, width, height, number, total):
             crop = ImageOps.contain(crop, (1714, 498), method=Image.Resampling.LANCZOS)
             image.paste(crop, (103, 267 + (498 - crop.height) // 2))
         block(draw, "User-supplied screenshot - privacy-redacted excerpt", (94, 807), 22, MUTED)
-        for index, label in enumerate(["SHARE", "AUDIENCE", "REVIEW", "LOCAL LINK", "RESUME", "CONTINUE"], 1):
+        for index, label in enumerate(["SHARE", "AUDIENCE", "REVIEW", "SNAPSHOT", "RESUME", "CONTINUE"], 1):
             x = 91 + (index - 1) * 288
             color = TEAL if index == scene["step"] else MUTED
             block(draw, f"{index:02d}  {label}", (x, 867), 21, color, bold=index == scene["step"])
     elif kind == "team":
         draw.rounded_rectangle((86, 313, 1834, 783), radius=24, fill=CARD)
-        block(draw, "Haowen Feng", (134, 366), 58, bold=True)
-        block(draw, "Qinqi Xu", (134, 463), 58, bold=True)
+        block(draw, team[0], (134, 366), 58, bold=True)
+        block(draw, team[1], (134, 463), 58, bold=True)
         block(draw, "Contact either team member to collaborate.", (136, 578), 34, MUTED)
         block(draw, "github.com/M954/AgentContextAcrossPlatform", (136, 670), 30, TEAL)
         block(draw, "Offline synthetic narration. Redacted screenshots; not a live screen recording.", (91, 833), 22, MUTED)
@@ -209,8 +254,10 @@ def draw_frame(scene, assets, width, height, number, total):
     if len(caption_lines) > 2:
         raise ValueError(f"{scene['id']}: caption is too long")
     block(draw, scene["caption"], (119, 945 if len(caption_lines) == 2 else 960), 27, width=1660)
-    block(draw, "LOCAL DEMO" if kind != "cards" or scene["id"] != "11-roadmap" else "FUTURE ROLLOUT",
-          (89, 1040), 17, MUTED)
+    footer = "CENTRAL SERVER DEMO" if kind in ["screenshot", "server"] else "AGENTCONTEXTACROSSPLATFORM"
+    if scene["id"] == "11-roadmap":
+        footer = "FUTURE ROLLOUT"
+    block(draw, footer, (89, 1040), 17, MUTED)
     draw.text((1750, 1040), f"{number:02d} / {total:02d}", font=font(17), fill=MUTED)
     return image
 
@@ -249,7 +296,7 @@ def render(plan_path, assets, work, output, frames_only=False):
     names = []
     for index, scene in enumerate(plan["scenes"], 1):
         name = f"{scene['id']}.png"
-        draw_frame(scene, assets, plan["width"], plan["height"], index, len(plan["scenes"])).save(frames / name)
+        draw_frame(scene, assets, plan["width"], plan["height"], index, len(plan["scenes"]), plan["team"]).save(frames / name)
         names.append(name)
     contact_sheet(frames, work / "storyboard-contact-sheet.jpg", names)
     shutil.copyfile(frames / names[0], output / "poster.png")
